@@ -81,6 +81,9 @@ function init() {
   // Initialize multiplayer interface
   initializeMultiplayerUI();
 
+  // Initialize toast notifications
+  initToastManager();
+
   // Show poker table and controls
   gui_show_poker_table();
   gui_show_game_response();

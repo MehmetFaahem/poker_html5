@@ -14,6 +14,7 @@
    <script charset="UTF-8" src=static/js/jsholdem/hands.js></script>
    <script charset="UTF-8" src=static/js/jsholdem/bot.js></script>
    <script charset="UTF-8" src=static/js/gui_if.js></script>
+   <script charset="UTF-8" src=static/js/toast-notifications.js></script>
    <script charset="UTF-8" src=static/js/websocket-client.js></script>
 </head>
 <body onload="parent.init()">
@@ -177,6 +178,9 @@
         <button id="bet-button" class="action-button">Raise</button>
     </div>
     <div id="game-response" class="response-normal">Game response</div>
+   
+    <!-- Toast Notifications Container -->
+    <div id="toast-container"></div>
    
     <div id="modal-box"></div>
 </body>

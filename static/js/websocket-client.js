@@ -118,6 +118,9 @@ class PokerWebSocketClient {
         console.log(`Player ${message.playerName} joined the game`);
         gui_log_to_history(`${message.playerName} joined the game`);
 
+        // Show join toast
+        showPlayerJoinToast(message.playerName);
+
         if (message.gameState) {
           this.updateGameUI(message.gameState);
         }
@@ -131,6 +134,10 @@ class PokerWebSocketClient {
         console.log(`Player ${message.playerId} left the game`);
         gui_log_to_history(`Player left the game`);
 
+        // Show leave toast
+        const leftPlayerName = this.getPlayerName(message.playerId) || "Player";
+        showPlayerLeaveToast(leftPlayerName);
+
         if (message.gameState) {
           this.updateGameUI(message.gameState);
         }
@@ -143,6 +150,9 @@ class PokerWebSocketClient {
       case "game_started":
         console.log("Game started!");
         gui_log_to_history("New hand started!");
+
+        // Show new hand toast
+        showNewHandToast();
 
         this.gameState = message.gameState;
         this.updateGameUI(message.gameState);
@@ -158,13 +168,19 @@ class PokerWebSocketClient {
         this.gameState = message.gameState;
         this.updateGameUI(message.gameState);
 
-        // Log the action
+        // Log the action and show toast
         if (message.action) {
           const actionText = this.formatAction(
             message.action,
             message.playerId
           );
           gui_log_to_history(actionText);
+
+          // Show action toast
+          const playerName =
+            this.getPlayerName(message.playerId) ||
+            `Player ${message.playerId}`;
+          this.showActionToast(playerName, message.action);
         }
 
         if (this.onGameUpdate) {
@@ -175,6 +191,22 @@ class PokerWebSocketClient {
       case "game_state":
         this.gameState = message.gameState;
         this.updateGameUI(message.gameState);
+        break;
+
+      case "player_win":
+        console.log("Player win:", message);
+
+        // Show win toast
+        showPlayerWinToast(message.winnerName, message.amount);
+
+        // Update game state
+        if (message.gameState) {
+          this.gameState = message.gameState;
+          this.updateGameUI(message.gameState);
+        }
+
+        // Log to history
+        gui_log_to_history(`🏆 ${message.winnerName} wins $${message.amount}!`);
         break;
 
       case "error":
@@ -209,6 +241,37 @@ class PokerWebSocketClient {
 
     const player = this.gameState.players.find((p) => p.id === playerId);
     return player ? player.name : null;
+  }
+
+  showActionToast(playerName, action) {
+    let actionType = action.type.toLowerCase();
+    let amount = action.amount;
+
+    // Handle different action types
+    switch (actionType) {
+      case "fold":
+        showPlayerActionToast(playerName, "fold");
+        break;
+      case "call":
+        // Determine if it's a call or check
+        if (amount === 0) {
+          showPlayerActionToast(playerName, "check");
+        } else {
+          showPlayerActionToast(playerName, "call", amount);
+        }
+        break;
+      case "raise":
+        showPlayerActionToast(playerName, "raise", amount);
+        break;
+      case "bet":
+        showPlayerActionToast(playerName, "raise", amount);
+        break;
+      case "all-in":
+        showPlayerActionToast(playerName, "all-in", amount);
+        break;
+      default:
+        showPlayerActionToast(playerName, actionType, amount);
+    }
   }
 
   updateGameUI(gameStateData) {

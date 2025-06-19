@@ -512,3 +512,107 @@ select {
 #room-code-display:hover {
   background-color: #1976d2 !important;
 }
+
+/* Toast Notifications */
+#toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.toast {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px 20px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 250px;
+  max-width: 350px;
+  transform: translateX(100%);
+  opacity: 0;
+  transition: all 0.3s ease-in-out;
+  border-left: 4px solid #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast.hide {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* Toast Types */
+.toast.action {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  border-left-color: #00d4ff;
+}
+
+.toast.win {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  border-left-color: #00ff88;
+  animation: pulse-win 0.5s ease-in-out;
+}
+
+.toast.fold {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  border-left-color: #ff6b6b;
+}
+
+.toast.call {
+  background: linear-gradient(135deg, #34504e 0%, #40504f 100%);
+  border-left-color: #4ecdc4;
+}
+
+.toast.raise {
+  background: linear-gradient(135deg, #784244 0%, #653b58 100%);
+  border-left-color: #ff6b9d;
+}
+
+.toast.check {
+  background: linear-gradient(135deg, #51388c 0%, #ff95e1 100%);
+  border-left-color: #9575cd;
+}
+
+.toast-icon {
+  font-size: 16px;
+  margin-right: 4px;
+}
+
+.toast-message {
+  flex: 1;
+}
+
+.toast-player {
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes pulse-win {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Dark theme adjustments for toasts */
+body[style*="DimGray"] .toast,
+body[style*="#393939"] .toast,
+body[style*="#090909"] .toast {
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+}

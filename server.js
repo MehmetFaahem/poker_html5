@@ -229,15 +229,49 @@ class GameRoom {
         break;
     }
 
+    // Check if only one player remains active (others folded)
+    const remainingPlayers = [...this.players.values()].filter(
+      (p) => p.isActive && !p.isFolded
+    );
+    if (remainingPlayers.length === 1) {
+      // Immediate win - only one player left
+      const winner = remainingPlayers[0];
+      let winAmount = this.gameState.pot;
+
+      // Add current bets to pot
+      this.players.forEach((player) => {
+        winAmount += player.currentBet;
+        player.currentBet = 0;
+      });
+
+      winner.bankroll += winAmount;
+
+      const winMessage = {
+        type: "player_win",
+        winnerId: [...this.players.entries()].find(
+          ([id, player]) => player === winner
+        )?.[0],
+        winnerName: winner.name,
+        amount: winAmount,
+        gameState: this.getGameStateForPlayer(null),
+      };
+
+      this.gameState.pot = 0;
+      this.endHand();
+
+      return { success: true, winMessage };
+    }
+
     // Move to next player
     this.gameState.currentBettor = this.getNextActivePlayer(currentPlayerIndex);
 
     // Check if betting round is complete
     if (this.isBettingRoundComplete()) {
-      this.advanceToNextRound();
+      const winMessage = this.advanceToNextRound();
+      return { success: true, winMessage };
     }
 
-    return true;
+    return { success: true };
   }
 
   getNextActivePlayer(currentIndex) {
@@ -291,8 +325,9 @@ class GameRoom {
         this.gameState.round = "river";
         break;
       case "river":
-        this.showdown();
-        break;
+        const winMessage = this.showdown();
+        this.endHand();
+        return winMessage; // Return win message to be broadcast
     }
 
     this.gameState.currentBet = 0;
@@ -330,8 +365,47 @@ class GameRoom {
 
   showdown() {
     // Determine winners and distribute pot
-    // This would integrate with the existing hand evaluation code
-    this.endHand();
+    const activePlayers = [...this.players.values()].filter(
+      (p) => p.isActive && !p.isFolded
+    );
+
+    if (activePlayers.length === 1) {
+      // Only one player left - they win
+      const winner = activePlayers[0];
+      const winAmount = this.gameState.pot;
+      winner.bankroll += winAmount;
+
+      // Send win notification
+      const winMessage = {
+        type: "player_win",
+        winnerId: [...this.players.entries()].find(
+          ([id, player]) => player === winner
+        )?.[0],
+        winnerName: winner.name,
+        amount: winAmount,
+        gameState: this.getGameStateForPlayer(null),
+      };
+
+      return winMessage;
+    } else {
+      // Multiple players - need hand evaluation
+      // For now, just give pot to first player (simplified)
+      const winner = activePlayers[0];
+      const winAmount = this.gameState.pot;
+      winner.bankroll += winAmount;
+
+      const winMessage = {
+        type: "player_win",
+        winnerId: [...this.players.entries()].find(
+          ([id, player]) => player === winner
+        )?.[0],
+        winnerName: winner.name,
+        amount: winAmount,
+        gameState: this.getGameStateForPlayer(null),
+      };
+
+      return winMessage;
+    }
   }
 
   endHand() {
@@ -487,15 +561,23 @@ wss.on("connection", (ws) => {
         case "player_action":
           if (roomId && playerId && gameRooms.has(roomId)) {
             const room = gameRooms.get(roomId);
-            const success = room.processPlayerAction(playerId, message.action);
+            const result = room.processPlayerAction(playerId, message.action);
 
-            if (success) {
+            if (result && result.success) {
+              // Broadcast regular game update
               broadcastToRoom(roomId, {
                 type: "game_update",
                 action: message.action,
                 playerId,
                 gameState: room.getGameStateForPlayer(null),
               });
+
+              // If there's a win message, broadcast it separately
+              if (result.winMessage) {
+                setTimeout(() => {
+                  broadcastToRoom(roomId, result.winMessage);
+                }, 1000); // Delay to show the win after the action
+              }
             }
           }
           break;
