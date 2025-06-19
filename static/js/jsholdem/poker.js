@@ -75,8 +75,18 @@ function init() {
   gui_hide_dealer_button();
   gui_hide_game_response();
   gui_initialize_theme_mode();
+  gui_initialize_css(); // Load background images
   make_deck();
-  new_game();
+
+  // Initialize multiplayer interface
+  initializeMultiplayerUI();
+
+  // Show poker table and controls
+  gui_show_poker_table();
+  gui_show_game_response();
+
+  // Start by asking player what they want to do
+  showMultiplayerOptions();
 }
 
 function make_deck() {
@@ -1382,4 +1392,74 @@ function makeTimeString(milliseconds) {
   string = getTimeText(string, seconds, "second");
 
   return string;
+}
+
+// Multiplayer functions
+function initializeMultiplayerUI() {
+  // Setup multiplayer button event handlers
+  const joinRoomBtn = document.getElementById("join-room-button");
+  const createRoomBtn = document.getElementById("create-room-button");
+  const startGameBtn = document.getElementById("start-game-button");
+  const roomCodeDisplay = document.getElementById("room-code-display");
+
+  if (joinRoomBtn) {
+    joinRoomBtn.onclick = function () {
+      const roomId = prompt("Enter room code:");
+      if (roomId) {
+        joinPokerRoom(roomId);
+      }
+    };
+  }
+
+  if (createRoomBtn) {
+    createRoomBtn.onclick = function () {
+      joinPokerRoom(); // Create new room
+    };
+  }
+
+  if (startGameBtn) {
+    startGameBtn.onclick = function () {
+      startMultiplayerGame();
+    };
+  }
+
+  if (roomCodeDisplay) {
+    roomCodeDisplay.onclick = function () {
+      const roomCode = getRoomCode();
+      if (roomCode) {
+        navigator.clipboard.writeText(roomCode).then(() => {
+          gui_write_game_response("Room code copied to clipboard!");
+          gui_set_game_response_font_color("green");
+        });
+      }
+    };
+  }
+
+  // Initialize WebSocket connection
+  initializeMultiplayer();
+}
+
+function showMultiplayerOptions() {
+  gui_write_basic_general_text("Choose multiplayer option");
+  gui_write_game_response(
+    "Welcome to Multiplayer Poker! Create or join a room to start playing."
+  );
+  gui_set_game_response_font_color("blue");
+}
+
+function updateRoomCodeDisplay(roomCode) {
+  const roomCodeDisplay = document.getElementById("room-code-display");
+  if (roomCodeDisplay && roomCode) {
+    roomCodeDisplay.textContent = `Room: ${roomCode}`;
+    roomCodeDisplay.style.visibility = "visible";
+  }
+}
+
+// Override the original new_game function for single-player mode
+function new_game_singleplayer() {
+  START_DATE = new Date();
+  NUM_ROUNDS = 0;
+  HUMAN_WINS_AGAIN = 0;
+  initialize_game();
+  ask_how_many_opponents();
 }
