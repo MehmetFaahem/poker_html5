@@ -8,6 +8,7 @@ class PokerWebSocketClient {
     this.playerName = null;
     this.isConnected = false;
     this.gameState = null;
+    this.singlePlayerMode = false; // Flag to prevent reconnection in single player mode
 
     // Event callbacks
     this.onConnected = null;
@@ -47,7 +48,13 @@ class PokerWebSocketClient {
       this.ws.onclose = () => {
         console.log("Disconnected from poker server");
         this.isConnected = false;
-        this.attemptReconnect();
+        if (!this.singlePlayerMode) {
+          this.attemptReconnect();
+        } else {
+          console.log(
+            "Single player mode active - not attempting to reconnect"
+          );
+        }
       };
 
       this.ws.onerror = (error) => {
@@ -682,6 +689,13 @@ class PokerWebSocketClient {
     this.isConnected = false;
   }
 
+  // Method to enable single player mode and prevent reconnection
+  enableSinglePlayerMode() {
+    console.log("Enabling single player mode - disabling auto-reconnect");
+    this.singlePlayerMode = true;
+    this.disconnect();
+  }
+
   // Getters
   getPlayerId() {
     return this.playerId;
@@ -700,8 +714,9 @@ class PokerWebSocketClient {
   }
 }
 
-// Global instance
+// Global instance and mode tracking
 let wsClient = null;
+let currentGameMode = "multiplayer"; // Track current mode
 
 // Initialize WebSocket client when the page loads
 function initializeMultiplayer() {
@@ -710,6 +725,11 @@ function initializeMultiplayer() {
   wsClient.onConnected = () => {
     gui_write_game_response("Connected to server");
     gui_set_game_response_font_color("green");
+
+    // Only override functions if we're still in multiplayer mode
+    if (currentGameMode === "multiplayer") {
+      setupMultiplayerFunctions();
+    }
   };
 
   wsClient.onError = (error) => {
@@ -721,24 +741,62 @@ function initializeMultiplayer() {
   wsClient.connect();
 }
 
-// Override the existing functions to work with multiplayer
-function human_fold() {
-  if (wsClient && wsClient.isInGame()) {
-    wsClient.sendPlayerAction({ type: "fold" });
+// Function to set up multiplayer function overrides
+function setupMultiplayerFunctions() {
+  console.log("Setting up multiplayer function overrides");
+
+  // Store original functions if they exist and aren't already multiplayer versions
+  if (!window.originalHumanFold && typeof human_fold === "function") {
+    window.originalHumanFold = human_fold;
   }
+  if (!window.originalHumanCall && typeof human_call === "function") {
+    window.originalHumanCall = human_call;
+  }
+  if (
+    !window.originalHandleHumanBet &&
+    typeof handle_human_bet === "function"
+  ) {
+    window.originalHandleHumanBet = handle_human_bet;
+  }
+
+  // Override with multiplayer functions
+  window.human_fold = function () {
+    console.log("Multiplayer human_fold called");
+    if (wsClient && wsClient.isInGame()) {
+      wsClient.sendPlayerAction({ type: "fold" });
+    }
+  };
+
+  window.human_call = function () {
+    console.log("Multiplayer human_call called");
+    if (wsClient && wsClient.isInGame()) {
+      wsClient.sendPlayerAction({ type: "call" });
+    }
+  };
+
+  window.handle_human_bet = function (betAmount) {
+    console.log("Multiplayer handle_human_bet called with amount:", betAmount);
+    if (wsClient && wsClient.isInGame()) {
+      wsClient.sendPlayerAction({ type: "raise", amount: betAmount });
+    }
+    gui_hide_bet_range();
+  };
 }
 
-function human_call() {
-  if (wsClient && wsClient.isInGame()) {
-    wsClient.sendPlayerAction({ type: "call" });
-  }
-}
+// Function to restore single player functions
+function restoreSinglePlayerFunctions() {
+  console.log("Restoring single player function overrides");
+  currentGameMode = "singleplayer";
 
-function handle_human_bet(betAmount) {
-  if (wsClient && wsClient.isInGame()) {
-    wsClient.sendPlayerAction({ type: "raise", amount: betAmount });
+  if (window.originalHumanFold) {
+    window.human_fold = window.originalHumanFold;
   }
-  gui_hide_bet_range();
+  if (window.originalHumanCall) {
+    window.human_call = window.originalHumanCall;
+  }
+  if (window.originalHandleHumanBet) {
+    window.handle_human_bet = window.originalHandleHumanBet;
+  }
 }
 
 // Room management functions

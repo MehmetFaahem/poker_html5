@@ -306,38 +306,38 @@ body {
 
 #seat7 {
   left: 650px;
-  top: 350px;
+  top: 380px;
 }
 .seat7-button {
   left: 730px;
   top: 400px;
 }
 #seat7 .bet {
-  top: -25px;
+  top: -47px;
 }
 
 #seat8 {
   left: 450px;
-  top: 350px;
+  top: 380px;
 }
 .seat8-button {
   left: 530px;
   top: 400px;
 }
 #seat8 .bet {
-  top: -25px;
+  top: -47px;
 }
 
 #seat9 {
   left: 250px;
-  top: 350px;
+  top: 380px;
 }
 .seat9-button {
   left: 330px;
   top: 400px;
 }
 #seat9 .bet {
-  top: -25px;
+  top: -47px;
 }
 
 #board {

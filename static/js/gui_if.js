@@ -96,7 +96,21 @@ function internal_clickin_helper(button, button_text, func_on_click) {
   } else {
     button.style.visibility = "visible";
     button.innerHTML = button_text;
-    button.onclick = func_on_click;
+    button.onclick = function () {
+      console.log(
+        "Button clicked:",
+        button_text,
+        "calling function:",
+        func_on_click ? func_on_click.name || "anonymous" : "null"
+      );
+      if (func_on_click) {
+        try {
+          func_on_click();
+        } catch (e) {
+          console.error("Error calling button function:", e);
+        }
+      }
+    };
   }
 }
 
@@ -421,7 +435,16 @@ function gui_setup_bet_range(min_value, max_value, current_value, callback) {
   // Set up bet button
   betButton.onclick = function () {
     var betAmount = parseInt(rangeInput.value);
-    parent.handle_human_bet(betAmount);
+    // Try parent context first (for iframe), then global context (for single player)
+    if (typeof parent.handle_human_bet === "function") {
+      parent.handle_human_bet(betAmount);
+    } else if (typeof handle_human_bet === "function") {
+      handle_human_bet(betAmount);
+    } else if (typeof window.handle_human_bet === "function") {
+      window.handle_human_bet(betAmount);
+    } else {
+      console.error("handle_human_bet function not found in any context");
+    }
   };
 }
 

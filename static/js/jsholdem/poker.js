@@ -471,7 +471,7 @@ function main() {
     players[current_bettor_index].status = "";
     if (current_bettor_index == 0) {
       var call_button_text = "<u>C</u>all";
-      var fold_button_text = "<font color=red><u>F</u>old</font>";
+      var fold_button_text = "<font color=white><u>F</u>old</font>";
       var to_call = current_bet_amount - players[0].subtotal_bet;
       if (to_call > players[0].bankroll) {
         to_call = players[0].bankroll;
@@ -1040,6 +1040,8 @@ function the_bet_function(player_index, bet_amount) {
 }
 
 function human_call() {
+  console.log("human_call() called in single player mode!");
+
   // Clear buttons
   gui_hide_fold_call_click();
   players[0].status = "CALL";
@@ -1056,6 +1058,11 @@ function human_call() {
 }
 
 function handle_human_bet(bet_amount) {
+  console.log(
+    "handle_human_bet() called in single player mode with amount:",
+    bet_amount
+  );
+
   if (bet_amount < 0 || isNaN(bet_amount)) bet_amount = 0;
   var to_call = current_bet_amount - players[0].subtotal_bet;
   bet_amount += to_call;
@@ -1078,6 +1085,8 @@ function handle_human_bet(bet_amount) {
 }
 
 function human_fold() {
+  console.log("human_fold() called in single player mode!");
+
   players[0].status = "FOLD";
 
   // Mark player as having acted this round
@@ -1523,11 +1532,62 @@ function initializeMultiplayerUI() {
   const singleplayerBtn = document.getElementById("singleplayer-button");
   if (singleplayerBtn) {
     singleplayerBtn.onclick = function () {
+      console.log("Single player button clicked!");
+
+      // Disconnect from multiplayer server and enable single player mode
+      if (wsClient) {
+        console.log("Disconnecting websocket client...");
+        wsClient.enableSinglePlayerMode();
+      }
+
+      // Restore single player functions
+      if (typeof restoreSinglePlayerFunctions === "function") {
+        restoreSinglePlayerFunctions();
+      }
+
+      // Hide multiplayer options
+      const multiplayerOptions = document.getElementById("multiplayer-options");
+      if (multiplayerOptions) {
+        console.log("Hiding multiplayer options...");
+        multiplayerOptions.style.display = "none";
+      }
+
+      // Clear any existing UI state and button handlers
+      gui_hide_fold_call_click();
+      gui_hide_bet_range();
+      gui_write_modal_box("");
+
+      // Remove any existing event listeners on action buttons to prevent conflicts
+      const actionButtons = document.getElementById("action-options");
+      if (actionButtons) {
+        const foldButton = actionButtons.children["fold-button"];
+        const callButton = actionButtons.children["call-button"];
+
+        if (foldButton) {
+          foldButton.onclick = null;
+          foldButton.style.visibility = "hidden";
+        }
+        if (callButton) {
+          callButton.onclick = null;
+          callButton.style.visibility = "hidden";
+        }
+      }
+
+      // Also clear bet button handler
+      const betButton = document.getElementById("bet-button");
+      if (betButton) {
+        betButton.onclick = null;
+      }
+
       // Switch to single-player mode
       gui_write_game_response("Starting single-player game...");
       gui_set_game_response_font_color("blue");
+
+      console.log("Calling new_game_singleplayer...");
       new_game_singleplayer();
     };
+  } else {
+    console.log("Single player button not found!");
   }
 }
 
@@ -1549,10 +1609,26 @@ function updateRoomCodeDisplay(roomCode) {
 
 // Override the original new_game function for single-player mode
 function new_game_singleplayer() {
+  console.log("Starting single player game...");
+
+  // Clear any existing game state
+  gui_hide_fold_call_click();
+  gui_hide_bet_range();
+  gui_write_modal_box("");
+
   START_DATE = new Date();
   NUM_ROUNDS = 0;
   HUMAN_WINS_AGAIN = 0;
+
+  // Reset global variables
+  players = null;
+  board = null;
+  deck_index = 0;
+
+  console.log("Calling initialize_game...");
   initialize_game();
+
+  console.log("Calling ask_how_many_opponents...");
   ask_how_many_opponents();
 }
 
