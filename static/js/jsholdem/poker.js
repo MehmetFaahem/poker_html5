@@ -455,20 +455,60 @@ function main() {
     increment_bettor_index = 1;
   } else if (!has_money(current_bettor_index)) {
     players[current_bettor_index].status = "CALL";
+    // Mark player as acted since they can't do anything else (all-in)
+    if (players_acted_this_round) {
+      players_acted_this_round[current_bettor_index] = true;
+      console.log(
+        "Player",
+        current_bettor_index,
+        "has no money - marked as acted (all-in)"
+      );
+    }
     increment_bettor_index = 1;
   } else if (
     players[current_bettor_index].status == "CALL" &&
     players[current_bettor_index].subtotal_bet == current_bet_amount
   ) {
+    // Player has already called and matched the bet - mark as acted
+    if (players_acted_this_round) {
+      players_acted_this_round[current_bettor_index] = true;
+      console.log(
+        "Player",
+        current_bettor_index,
+        "already called and matched bet - marked as acted"
+      );
+    }
     increment_bettor_index = 1;
   } else if (
     players_acted_this_round &&
-    players_acted_this_round[current_bettor_index]
+    players_acted_this_round[current_bettor_index] &&
+    players[current_bettor_index].subtotal_bet >= current_bet_amount
   ) {
-    // Player has already acted this round, move to next player
+    // Player has already acted this round AND matched the bet, move to next player
+    console.log(
+      "Player",
+      current_bettor_index,
+      "already acted and matched bet - skipping"
+    );
     increment_bettor_index = 1;
   } else {
+    // Player needs to act - reset their status and give them the option
     players[current_bettor_index].status = "";
+
+    // If this player has acted but needs to match a higher bet, reset their acted status
+    if (
+      players_acted_this_round &&
+      players_acted_this_round[current_bettor_index] &&
+      players[current_bettor_index].subtotal_bet < current_bet_amount
+    ) {
+      console.log(
+        "Player",
+        current_bettor_index,
+        "needs to act again due to raised bet"
+      );
+      players_acted_this_round[current_bettor_index] = false;
+    }
+
     if (current_bettor_index == 0) {
       var call_button_text = "<u>C</u>all";
       var fold_button_text = "<font color=white><u>F</u>old</font>";
@@ -603,34 +643,97 @@ function main() {
     }
   }
   var can_break = true;
+  console.log("=== Checking if betting round can end ===");
+  console.log("Current bet amount:", current_bet_amount);
+  console.log("Players acted this round:", players_acted_this_round);
+
   for (var j = 0; j < players.length; j++) {
     var s = players[j].status;
+    console.log(
+      "Player",
+      j,
+      "status:",
+      s,
+      "bet:",
+      players[j].subtotal_bet,
+      "acted:",
+      players_acted_this_round ? players_acted_this_round[j] : "N/A"
+    );
+
     if (s == "OPTION") {
+      console.log("Player", j, "has OPTION status - betting continues");
       can_break = false;
       break;
     }
     if (s != "BUST" && s != "FOLD") {
       if (has_money(j) && players[j].subtotal_bet < current_bet_amount) {
+        console.log("Player", j, "needs to match bet - betting continues");
         can_break = false;
         break;
       }
-      // Also check if this active player hasn't acted yet
+      // Check if this active player hasn't acted yet OR needs to match the bet
       if (
         players_acted_this_round &&
-        !players_acted_this_round[j] &&
-        has_money(j)
+        has_money(j) &&
+        (!players_acted_this_round[j] ||
+          players[j].subtotal_bet < current_bet_amount)
       ) {
+        if (!players_acted_this_round[j]) {
+          console.log(
+            "Player",
+            j,
+            "hasn't acted yet and has money - betting continues"
+          );
+        } else {
+          console.log(
+            "Player",
+            j,
+            "acted but needs to match bet (has money) - betting continues"
+          );
+        }
         can_break = false;
         break;
       }
     }
   }
+
+  console.log("Can end betting round:", can_break);
+
+  // Safety check: if no one can act and betting round won't end, force it to end
+  if (!can_break) {
+    var anyone_can_act = false;
+    for (var k = 0; k < players.length; k++) {
+      if (
+        players[k].status != "BUST" &&
+        players[k].status != "FOLD" &&
+        has_money(k)
+      ) {
+        if (
+          !players_acted_this_round ||
+          !players_acted_this_round[k] ||
+          players[k].subtotal_bet < current_bet_amount
+        ) {
+          anyone_can_act = true;
+          break;
+        }
+      }
+    }
+    if (!anyone_can_act) {
+      console.warn(
+        "SAFETY: No one can act but betting round won't end - forcing end (this should be rare now)"
+      );
+      can_break = true;
+    }
+  }
+
   if (increment_bettor_index) {
     current_bettor_index = get_next_player_position(current_bettor_index, 1);
   }
   if (can_break) {
+    console.log("Ending betting round - advancing to next card");
     setTimeout(ready_for_next_card, 999 * global_speed);
   } else {
+    console.log("Continuing betting round - calling main() again");
     setTimeout(main, 999 * global_speed);
   }
 }
@@ -772,6 +875,10 @@ function handle_end_of_round() {
   pot_remainder = 0;
   var winner_text = "";
   var human_loses = 0;
+  var primary_winner = null;
+  var primary_winner_amount = 0;
+  var primary_winner_hand = "";
+
   // Distribute the pot - and then do too many things
   for (i = 0; i < allocations.length; i++) {
     if (allocations[i] > 0) {
@@ -789,6 +896,14 @@ function handle_end_of_round() {
         players[i].name +
         ". ";
       players[i].bankroll += allocations[i];
+
+      // Track the primary winner (player with largest allocation)
+      if (allocations[i] > primary_winner_amount) {
+        primary_winner = players[i].name;
+        primary_winner_amount = allocations[i];
+        primary_winner_hand = winning_hands[i];
+      }
+
       if (best_hand_players[i]) {
         // function write_player(n, hilite, show_cards)
         write_player(i, 2, 1);
@@ -806,6 +921,19 @@ function handle_end_of_round() {
         write_player(i, 0, 1);
       }
     }
+  }
+
+  // Show win modal if there's a winner
+  if (primary_winner && primary_winner_amount > 0) {
+    setTimeout(function () {
+      if (typeof showWinModal === "function") {
+        showWinModal(
+          primary_winner,
+          primary_winner_amount,
+          primary_winner_hand
+        );
+      }
+    }, 1000); // Delay to let the table update first
   }
   // Have a more liberal take on winning
   if (allocations[0] > 5) {
@@ -1135,6 +1263,7 @@ function bet_from_bot(x) {
   // Mark bot as having acted this round
   if (players_acted_this_round) {
     players_acted_this_round[x] = true;
+    console.log("Bot player", x, "marked as acted");
   }
 
   write_player(current_bettor_index, 0, 0);

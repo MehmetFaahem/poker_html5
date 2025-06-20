@@ -146,9 +146,9 @@
   /* Betting range - overlay style on mobile */
   #bet-range-container {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    bottom: 100px;
+    right: 50%;
+    transform: translate(50%, 0);
     width: 90%;
     max-width: 300px;
     z-index: 150;

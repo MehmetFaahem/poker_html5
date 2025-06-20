@@ -544,9 +544,120 @@ function gui_toggle_the_theme_mode() {
 
 function gui_get_theme_mode_highlite_color() {
   var mode = internal_get_theme_mode();
-  var color = "yellow";
-  if (mode == "light") {
-    color = "red";
+  if (mode == "dark") {
+    return "orange";
+  } else {
+    return "darkred";
   }
-  return color;
+}
+
+// Win Modal Functions
+function showWinModal(winnerName, winAmount, handType) {
+  const modal = document.getElementById("win-modal");
+  const title = document.getElementById("win-modal-title");
+  const details = document.getElementById("win-modal-details");
+
+  // Set the winner information
+  title.textContent = `${winnerName} Wins!`;
+
+  let detailsText = "";
+  if (winAmount) {
+    detailsText += `Won $${winAmount}`;
+  }
+  if (handType) {
+    detailsText += handType.includes("with")
+      ? ` ${handType}`
+      : ` with ${handType}`;
+  }
+  details.textContent = detailsText;
+
+  // Show the modal
+  modal.style.display = "block";
+
+  // Add event listeners for buttons
+  setupWinModalButtons();
+}
+
+function hideWinModal() {
+  const modal = document.getElementById("win-modal");
+  modal.style.display = "none";
+}
+
+function setupWinModalButtons() {
+  const newRoundButton = document.getElementById("new-round-button");
+  const newGameButton = document.getElementById("new-game-button");
+
+  // Remove existing event listeners
+  if (newRoundButton) {
+    newRoundButton.onclick = null;
+  }
+  if (newGameButton) {
+    newGameButton.onclick = null;
+  }
+
+  // Add event listeners
+  if (newRoundButton) {
+    newRoundButton.onclick = function () {
+      hideWinModal();
+      if (typeof new_round === "function") {
+        new_round();
+      }
+    };
+  }
+
+  if (newGameButton) {
+    newGameButton.onclick = function () {
+      hideWinModal();
+
+      console.log("New Game button clicked - checking game mode...");
+
+      // Check multiple ways to detect multiplayer mode
+      const isMultiplayer =
+        (typeof window.wsClient !== "undefined" &&
+          window.wsClient &&
+          window.wsClient.isInGame()) ||
+        (typeof window.currentGameMode !== "undefined" &&
+          window.currentGameMode === "multiplayer");
+
+      console.log("Multiplayer detected:", isMultiplayer);
+
+      if (isMultiplayer) {
+        // Multiplayer mode - restart game with current players
+        console.log("Restarting multiplayer game...");
+        if (typeof startMultiplayerGame === "function") {
+          startMultiplayerGame();
+        } else {
+          console.error("startMultiplayerGame function not found");
+        }
+      } else {
+        // Check if we have existing players (single player with bots)
+        if (typeof players !== "undefined" && players && players.length > 1) {
+          // Single player mode with existing setup - restart with same number of opponents
+          console.log(
+            "Restarting single player game with",
+            players.length - 1,
+            "opponents"
+          );
+          const numOpponents = players.length - 1;
+          if (typeof new_game_continues === "function") {
+            new_game_continues(numOpponents);
+          }
+        } else {
+          // Fallback to regular new game
+          console.log("Starting new game from scratch");
+          if (typeof new_game === "function") {
+            new_game();
+          }
+        }
+      }
+    };
+  }
+
+  // Close modal when clicking outside
+  window.onclick = function (event) {
+    const modal = document.getElementById("win-modal");
+    if (event.target === modal) {
+      hideWinModal();
+    }
+  };
 }

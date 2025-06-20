@@ -207,6 +207,11 @@ class PokerWebSocketClient {
         const handInfo = message.handType ? ` with ${message.handType}` : "";
         showPlayerWinToast(message.winnerName, message.amount, handInfo);
 
+        // Show win modal
+        if (typeof showWinModal === "function") {
+          showWinModal(message.winnerName, message.amount, message.handType);
+        }
+
         // Log to history
         gui_log_to_history(
           `${message.winnerName} wins $${message.amount}${handInfo}!`
@@ -222,6 +227,15 @@ class PokerWebSocketClient {
           ? ` with ${message.handType}`
           : "";
         showPlayerWinToast(`${winnerNames}`, "split pot", handTypeInfo);
+
+        // Show win modal for multiple winners
+        if (typeof showWinModal === "function") {
+          const totalAmount = message.winners.reduce(
+            (sum, w) => sum + w.amount,
+            0
+          );
+          showWinModal(`${winnerNames}`, totalAmount, message.handType);
+        }
 
         // Log each winner
         message.winners.forEach((winner) => {
@@ -718,9 +732,16 @@ class PokerWebSocketClient {
 let wsClient = null;
 let currentGameMode = "multiplayer"; // Track current mode
 
+// Make wsClient and currentGameMode globally accessible
+window.wsClient = null;
+window.currentGameMode = currentGameMode;
+
 // Initialize WebSocket client when the page loads
 function initializeMultiplayer() {
   wsClient = new PokerWebSocketClient();
+  window.wsClient = wsClient;
+  window.currentGameMode = "multiplayer";
+  currentGameMode = "multiplayer";
 
   wsClient.onConnected = () => {
     gui_write_game_response("Connected to server");
@@ -787,6 +808,7 @@ function setupMultiplayerFunctions() {
 function restoreSinglePlayerFunctions() {
   console.log("Restoring single player function overrides");
   currentGameMode = "singleplayer";
+  window.currentGameMode = "singleplayer";
 
   if (window.originalHumanFold) {
     window.human_fold = window.originalHumanFold;
