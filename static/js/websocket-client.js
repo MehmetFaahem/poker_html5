@@ -550,20 +550,20 @@ function handle_human_bet(betAmount) {
 }
 
 // Room management functions
-function joinPokerRoom(roomId = null) {
+function joinPokerRoom(roomId = null, playerName = null) {
   if (!wsClient) {
     initializeMultiplayer();
 
     // Wait for connection before joining
     setTimeout(() => {
       if (wsClient.isConnected) {
-        const playerName = getLocalStorage("playername") || "Player";
-        wsClient.joinRoom(roomId, playerName);
+        const name = playerName || getLocalStorage("playername") || "Player";
+        wsClient.joinRoom(roomId, name);
       }
     }, 1000);
   } else if (wsClient.isConnected) {
-    const playerName = getLocalStorage("playername") || "Player";
-    wsClient.joinRoom(roomId, playerName);
+    const name = playerName || getLocalStorage("playername") || "Player";
+    wsClient.joinRoom(roomId, name);
   } else {
     gui_write_game_response("Connecting to server...");
     gui_set_game_response_font_color("orange");

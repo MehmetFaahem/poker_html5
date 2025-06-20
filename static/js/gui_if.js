@@ -463,7 +463,8 @@ function internal_get_theme_mode() {
   var mode = getLocalStorage("currentmode");
   if (mode === null) {
     // first time
-    mode = "light";
+    mode = "night";
+    internal_set_theme_mode(mode);
   }
   return mode;
 }

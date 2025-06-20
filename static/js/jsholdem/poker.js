@@ -1407,16 +1407,42 @@ function initializeMultiplayerUI() {
 
   if (joinRoomBtn) {
     joinRoomBtn.onclick = function () {
+      const playerName = prompt(
+        "Enter your name:",
+        getLocalStorage("playername") || ""
+      );
+      if (!playerName) {
+        gui_write_game_response("Player name is required to join a room");
+        gui_set_game_response_font_color("red");
+        return;
+      }
+
+      // Save the name for future use
+      setLocalStorage("playername", playerName);
+
       const roomId = prompt("Enter room code:");
       if (roomId) {
-        joinPokerRoom(roomId);
+        joinPokerRoom(roomId, playerName);
       }
     };
   }
 
   if (createRoomBtn) {
     createRoomBtn.onclick = function () {
-      joinPokerRoom(); // Create new room
+      const playerName = prompt(
+        "Enter your name:",
+        getLocalStorage("playername") || ""
+      );
+      if (!playerName) {
+        gui_write_game_response("Player name is required to create a room");
+        gui_set_game_response_font_color("red");
+        return;
+      }
+
+      // Save the name for future use
+      setLocalStorage("playername", playerName);
+
+      joinPokerRoom(null, playerName); // Create new room
     };
   }
 
