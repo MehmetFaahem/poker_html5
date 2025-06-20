@@ -277,83 +277,77 @@ class PokerWebSocketClient {
   updateGameUI(gameStateData) {
     if (!gameStateData) return;
 
-    const { gameState, players, myCards } = gameStateData;
+    console.log("Updating game UI with:", gameStateData);
+
+    // Update pot display
+    if (gameStateData.gameState && gameStateData.gameState.pot !== undefined) {
+      gui_write_basic_general(gameStateData.gameState.pot);
+    }
 
     // Clear all seats first
     for (let i = 0; i < 10; i++) {
       gui_set_player_name("", i);
       gui_set_bankroll("", i);
       gui_set_bet("", i);
-      gui_set_player_cards("", "", i);
+      gui_set_player_cards("", "", i, false);
       gui_hilite_player("", "", i);
     }
 
     // Update players
-    players.forEach((player) => {
-      if (player.seat >= 0 && player.seat < 10) {
-        gui_set_player_name(player.name, player.seat);
-        gui_set_bankroll(player.bankroll, player.seat);
-        gui_set_bet(
-          player.currentBet > 0 ? `$${player.currentBet}` : "",
-          player.seat
-        );
+    if (gameStateData.players) {
+      gameStateData.players.forEach((player) => {
+        const seat = player.seat;
+        gui_set_player_name(player.name, seat);
+        gui_set_bankroll(player.bankroll, seat);
 
-        // Set player cards
-        if (player.id === this.playerId && myCards && myCards.length >= 2) {
-          // Show my cards
-          gui_set_player_cards(
-            myCards[0],
-            myCards[1],
-            player.seat,
-            player.isFolded
-          );
-        } else if (player.cards && player.cards.length >= 2) {
-          // Show other players' cards (blinded or revealed)
-          gui_set_player_cards(
-            player.cards[0],
-            player.cards[1],
-            player.seat,
-            player.isFolded
-          );
+        if (player.currentBet > 0) {
+          gui_set_bet("$" + player.currentBet, seat);
+        }
+
+        // Show cards - display actual cards for current player, blinded for others
+        if (player.cards && player.cards.length >= 2) {
+          let card1, card2;
+
+          // If this is the current player, show their actual cards
+          if (player.id === this.playerId) {
+            card1 = player.cards[0];
+            card2 = player.cards[1];
+          } else {
+            // For other players, show blinded cards if they haven't folded
+            card1 = player.isFolded ? "" : "blinded";
+            card2 = player.isFolded ? "" : "blinded";
+          }
+
+          gui_set_player_cards(card1, card2, seat, player.isFolded);
         }
 
         // Highlight current player
-        if (gameState.isGameActive && this.isCurrentPlayer(player, gameState)) {
-          const highlightColor = gui_get_theme_mode_highlite_color();
-          gui_hilite_player(highlightColor, "black", player.seat);
-        } else {
-          gui_hilite_player("", "", player.seat);
+        if (player.isCurrentTurn && gameStateData.gameState?.isGameActive) {
+          gui_hilite_player("yellow", "black", seat);
         }
-      }
-    });
-
-    // Update community cards
-    if (gameState.communityCards) {
-      for (let i = 0; i < 5; i++) {
-        const card = gameState.communityCards[i] || "";
-        gui_lay_board_card(i, card);
-      }
+      });
     }
 
-    // Update pot
-    if (gameState.pot > 0) {
-      gui_write_basic_general(gameState.pot);
-    } else {
-      gui_write_basic_general_text("Waiting for players...");
+    // Update community cards
+    if (gameStateData.gameState?.communityCards) {
+      for (let i = 0; i < gameStateData.gameState.communityCards.length; i++) {
+        gui_lay_board_card(i, gameStateData.gameState.communityCards[i]);
+      }
     }
 
     // Update dealer button
-    if (gameState.isGameActive && players.length > 0) {
-      const dealerPlayer = players.find((p) => p.seat === gameState.button);
-      if (dealerPlayer) {
-        gui_place_dealer_button(dealerPlayer.seat);
-      }
-    } else {
-      gui_hide_dealer_button();
+    if (gameStateData.gameState?.button !== undefined) {
+      gui_place_dealer_button(gameStateData.gameState.button);
+    }
+
+    // Show room settings information
+    if (gameStateData.roomSettings) {
+      const settingsText = `Room Settings - Starting Chips: $${gameStateData.roomSettings.startingChips}, Min Call: $${gameStateData.roomSettings.minCall}, Max Call: $${gameStateData.roomSettings.maxCall}`;
+      gui_log_to_history(settingsText);
     }
 
     // Update action buttons for current player
-    this.updateActionButtons(gameState);
+    this.updateActionButtons(gameStateData.gameState);
   }
 
   isCurrentPlayer(player, gameState) {
@@ -400,7 +394,13 @@ class PokerWebSocketClient {
     // Setup bet range for raising
     if (myPlayer.bankroll > callAmount) {
       const minRaise = gameState.currentBet + (gameState.minRaise || 10);
-      const maxRaise = myPlayer.bankroll + myPlayer.currentBet;
+      let maxRaise = myPlayer.bankroll + myPlayer.currentBet;
+
+      // Apply room's maximum call limit
+      if (this.gameState && this.gameState.roomSettings) {
+        maxRaise = Math.min(maxRaise, this.gameState.roomSettings.maxCall);
+      }
+
       const currentValue = Math.min(minRaise, maxRaise);
 
       gui_setup_bet_range(minRaise, maxRaise, currentValue, (value) => {
@@ -413,19 +413,45 @@ class PokerWebSocketClient {
 
   // Public API methods
   joinRoom(roomId = null, playerName = "Player") {
-    this.playerName = playerName;
-
     if (!this.isConnected) {
-      console.error("Not connected to server");
+      console.error("Cannot join room: not connected to server");
       return false;
     }
+
+    this.playerName = playerName;
 
     this.send({
       type: "join_room",
       roomId: roomId,
       playerName: playerName,
-      playerId: this.playerId, // Rejoin with same ID if reconnecting
     });
+
+    return true;
+  }
+
+  createRoomWithSettings(playerName, roomSettings) {
+    if (!this.isConnected) {
+      console.error("Cannot create room: not connected to server");
+      gui_write_game_response(
+        "Not connected to server. Please refresh the page."
+      );
+      gui_set_game_response_font_color("red");
+      return false;
+    }
+
+    this.playerName = playerName;
+
+    this.send({
+      type: "join_room",
+      roomId: null, // null means create new room
+      playerName: playerName,
+      startingChips: roomSettings.startingChips,
+      minCall: roomSettings.minCall,
+      maxCall: roomSettings.maxCall,
+    });
+
+    gui_write_game_response("Creating room with custom settings...");
+    gui_set_game_response_font_color("blue");
 
     return true;
   }

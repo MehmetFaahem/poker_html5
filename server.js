@@ -42,8 +42,14 @@ const wss = new WebSocket.Server({ server });
 
 // Game state management
 class GameRoom {
-  constructor(id) {
+  constructor(id, roomSettings = {}) {
     this.id = id;
+    this.roomSettings = {
+      startingChips: roomSettings.startingChips || 500,
+      minCall: roomSettings.minCall || 5,
+      maxCall: roomSettings.maxCall || 50,
+      creatorId: roomSettings.creatorId || null,
+    };
     this.players = new Map(); // playerId -> player data
     this.gameState = {
       isGameActive: false,
@@ -72,7 +78,7 @@ class GameRoom {
       ...playerData,
       seat,
       cards: [],
-      bankroll: 500,
+      bankroll: this.roomSettings.startingChips,
       currentBet: 0,
       isActive: true,
       isFolded: false,
@@ -166,8 +172,8 @@ class GameRoom {
     const activePlayers = [...this.players.values()].filter((p) => p.isActive);
     if (activePlayers.length < 2) return;
 
-    const smallBlind = 5;
-    const bigBlind = 10;
+    const smallBlind = this.roomSettings.minCall;
+    const bigBlind = this.roomSettings.minCall * 2;
 
     // Find small blind and big blind positions
     const sbIndex = (this.gameState.button + 1) % activePlayers.length;
@@ -217,14 +223,28 @@ class GameRoom {
         break;
 
       case "raise":
-        const raiseAmount = Math.min(
-          action.amount,
+        // Enforce maximum call limit
+        const maxAllowedBet = Math.min(
+          this.roomSettings.maxCall,
           player.bankroll + player.currentBet
         );
+        const raiseAmount = Math.min(action.amount, maxAllowedBet);
         const additionalBet = raiseAmount - player.currentBet;
-        player.currentBet = raiseAmount;
-        player.bankroll -= additionalBet;
-        this.gameState.currentBet = raiseAmount;
+
+        if (raiseAmount <= this.gameState.currentBet) {
+          // If raise amount is not higher than current bet, treat as call
+          const callAmount = Math.min(
+            this.gameState.currentBet - player.currentBet,
+            player.bankroll
+          );
+          player.currentBet += callAmount;
+          player.bankroll -= callAmount;
+        } else {
+          player.currentBet = raiseAmount;
+          player.bankroll -= additionalBet;
+          this.gameState.currentBet = raiseAmount;
+        }
+
         if (player.bankroll === 0) player.isAllIn = true;
         break;
     }
@@ -433,6 +453,7 @@ class GameRoom {
     const player = this.players.get(playerId);
     return {
       gameState: this.gameState,
+      roomSettings: this.roomSettings,
       players: Array.from(this.players.entries()).map(([id, p]) => ({
         id,
         name: p.name,
@@ -454,9 +475,9 @@ class GameRoom {
 const gameRooms = new Map();
 const playerConnections = new Map(); // playerId -> { ws, roomId }
 
-function createRoom() {
+function createRoom(roomSettings = {}) {
   const roomId = Math.random().toString(36).substring(2, 8);
-  gameRooms.set(roomId, new GameRoom(roomId));
+  gameRooms.set(roomId, new GameRoom(roomId, roomSettings));
   return roomId;
 }
 
@@ -477,7 +498,12 @@ function broadcastToRoom(roomId, message, excludePlayerId = null) {
     if (playerId !== excludePlayerId && playerConnections.has(playerId)) {
       const connection = playerConnections.get(playerId);
       if (connection.ws.readyState === WebSocket.OPEN) {
-        connection.ws.send(JSON.stringify(message));
+        // Create personalized message with player-specific game state
+        const personalizedMessage = { ...message };
+        if (personalizedMessage.gameState) {
+          personalizedMessage.gameState = room.getGameStateForPlayer(playerId);
+        }
+        connection.ws.send(JSON.stringify(personalizedMessage));
       }
     }
   });
@@ -499,8 +525,14 @@ wss.on("connection", (ws) => {
           roomId = message.roomId;
 
           if (!roomId) {
-            // Create new room
-            roomId = createRoom();
+            // Create new room with settings
+            const roomSettings = {
+              startingChips: message.startingChips || 500,
+              minCall: message.minCall || 5,
+              maxCall: message.maxCall || 50,
+              creatorId: playerId,
+            };
+            roomId = createRoom(roomSettings);
           }
 
           const joined = joinRoom(playerId, roomId, {
@@ -531,7 +563,7 @@ wss.on("connection", (ws) => {
                 type: "player_joined",
                 playerId,
                 playerName: message.playerName,
-                gameState: room.getGameStateForPlayer(null),
+                gameState: {}, // Will be filled by broadcastToRoom with personalized data
               },
               playerId
             );
@@ -552,7 +584,7 @@ wss.on("connection", (ws) => {
             if (room.startNewHand()) {
               broadcastToRoom(roomId, {
                 type: "game_started",
-                gameState: room.getGameStateForPlayer(null),
+                gameState: {}, // Will be filled by broadcastToRoom with personalized data
               });
             }
           }
@@ -569,7 +601,7 @@ wss.on("connection", (ws) => {
                 type: "game_update",
                 action: message.action,
                 playerId,
-                gameState: room.getGameStateForPlayer(null),
+                gameState: {}, // Will be filled by broadcastToRoom with personalized data
               });
 
               // If there's a win message, broadcast it separately
@@ -622,7 +654,7 @@ wss.on("connection", (ws) => {
         broadcastToRoom(roomId, {
           type: "player_left",
           playerId,
-          gameState: room.getGameStateForPlayer(null),
+          gameState: {}, // Will be filled by broadcastToRoom with personalized data
         });
 
         // Clean up empty rooms

@@ -81,6 +81,9 @@ function init() {
   // Initialize multiplayer interface
   initializeMultiplayerUI();
 
+  // Initialize WebSocket connection immediately
+  initializeMultiplayer();
+
   // Initialize toast notifications
   initToastManager();
 
@@ -1429,20 +1432,7 @@ function initializeMultiplayerUI() {
 
   if (createRoomBtn) {
     createRoomBtn.onclick = function () {
-      const playerName = prompt(
-        "Enter your name:",
-        getLocalStorage("playername") || ""
-      );
-      if (!playerName) {
-        gui_write_game_response("Player name is required to create a room");
-        gui_set_game_response_font_color("red");
-        return;
-      }
-
-      // Save the name for future use
-      setLocalStorage("playername", playerName);
-
-      joinPokerRoom(null, playerName); // Create new room
+      showCreateRoomModal();
     };
   }
 
@@ -1491,4 +1481,145 @@ function new_game_singleplayer() {
   HUMAN_WINS_AGAIN = 0;
   initialize_game();
   ask_how_many_opponents();
+}
+
+// Room creation modal functions
+function showCreateRoomModal() {
+  const modal = document.getElementById("create-room-modal");
+  const nameInput = document.getElementById("room-creator-name");
+  const startingChipsInput = document.getElementById("starting-chips");
+  const minCallInput = document.getElementById("min-call");
+  const maxCallInput = document.getElementById("max-call");
+  const closeBtn = modal.querySelector(".close");
+  const form = document.getElementById("room-settings-form");
+  const cancelBtn = document.getElementById("create-room-cancel");
+
+  // Pre-fill name if available
+  nameInput.value = getLocalStorage("playername") || "";
+
+  // Show modal
+  modal.style.display = "block";
+
+  // Handle form submission
+  form.onsubmit = function (e) {
+    e.preventDefault();
+
+    const playerName = nameInput.value.trim();
+    const startingChips = parseInt(startingChipsInput.value);
+    const minCall = parseInt(minCallInput.value);
+    const maxCall = parseInt(maxCallInput.value);
+
+    // Validation
+    if (!playerName) {
+      alert("Player name is required");
+      return;
+    }
+
+    if (minCall >= maxCall) {
+      alert("Maximum call must be greater than minimum call");
+      return;
+    }
+
+    if (startingChips < minCall * 10) {
+      alert("Starting chips should be at least 10 times the minimum call");
+      return;
+    }
+
+    // Save the name for future use
+    setLocalStorage("playername", playerName);
+
+    // Create room with settings
+    createRoomWithSettings(playerName, startingChips, minCall, maxCall);
+
+    // Hide modal
+    modal.style.display = "none";
+  };
+
+  // Handle close button
+  closeBtn.onclick = function () {
+    modal.style.display = "none";
+  };
+
+  // Handle cancel button
+  cancelBtn.onclick = function () {
+    modal.style.display = "none";
+  };
+
+  // Handle click outside modal
+  window.onclick = function (event) {
+    if (event.target === modal) {
+      modal.style.display = "none";
+    }
+  };
+}
+
+function createRoomWithSettings(playerName, startingChips, minCall, maxCall) {
+  console.log("createRoomWithSettings called with:", {
+    playerName,
+    startingChips,
+    minCall,
+    maxCall,
+  });
+  console.log(
+    "wsClient status:",
+    wsClient ? "exists" : "null",
+    wsClient ? (wsClient.isConnected ? "connected" : "not connected") : ""
+  );
+
+  // Use the websocket client to create room with custom settings
+  if (wsClient && wsClient.isConnected) {
+    console.log("Creating room with settings...");
+    wsClient.createRoomWithSettings(playerName, {
+      startingChips: startingChips,
+      minCall: minCall,
+      maxCall: maxCall,
+    });
+  } else {
+    // Initialize WebSocket client if not available
+    if (!wsClient) {
+      console.log("Initializing WebSocket client...");
+      gui_write_game_response("Connecting to server...");
+      gui_set_game_response_font_color("orange");
+
+      initializeMultiplayer();
+
+      // Wait for connection before creating room
+      setTimeout(() => {
+        if (wsClient && wsClient.isConnected) {
+          console.log("Connection established, creating room...");
+          wsClient.createRoomWithSettings(playerName, {
+            startingChips: startingChips,
+            minCall: minCall,
+            maxCall: maxCall,
+          });
+        } else {
+          console.log("Connection failed");
+          gui_write_game_response(
+            "Failed to connect to server. Please refresh the page."
+          );
+          gui_set_game_response_font_color("red");
+        }
+      }, 2000); // Increased timeout to 2 seconds
+    } else {
+      console.log("WebSocket exists but not connected, waiting...");
+      gui_write_game_response("Connecting to server...");
+      gui_set_game_response_font_color("orange");
+
+      // Wait for existing connection to establish
+      setTimeout(() => {
+        if (wsClient && wsClient.isConnected) {
+          console.log("Connection established, creating room...");
+          wsClient.createRoomWithSettings(playerName, {
+            startingChips: startingChips,
+            minCall: minCall,
+            maxCall: maxCall,
+          });
+        } else {
+          console.log("Connection timeout");
+          gui_write_game_response("Connection timeout. Please try again.");
+          gui_set_game_response_font_color("red");
+        }
+      }, 2000);
+    }
+  }
 }
