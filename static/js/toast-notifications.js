@@ -81,6 +81,15 @@ class ToastManager {
       case "raise":
         icon = '<i class="fas fa-arrow-up"></i>';
         break;
+      case "turn":
+        icon = '<i class="fas fa-clock"></i>';
+        break;
+      case "timeout":
+        icon = '<i class="fas fa-hourglass-end"></i>';
+        break;
+      case "warning":
+        icon = '<i class="fas fa-exclamation-triangle"></i>';
+        break;
       case "action":
       default:
         icon = '<i class="fas fa-play"></i>';
@@ -200,6 +209,20 @@ class ToastManager {
     this.showToast(message, "action", 2500);
   }
 
+  showPlayerTurn(playerName) {
+    const message = `⏰ It's <span class="toast-player">${playerName}</span>'s turn`;
+    this.showToast(message, "turn", 3000);
+  }
+
+  showPlayerTimeout(playerName) {
+    const message = `⏰ <span class="toast-player">${playerName}</span> timed out and folded`;
+    this.showToast(message, "timeout", 4000);
+  }
+
+  showTimeWarning(message) {
+    this.showToast(`⚠️ ${message}`, "warning", 2000);
+  }
+
   // Clear all toasts
   clearAll() {
     const toasts = this.container.querySelectorAll(".toast");
@@ -252,4 +275,19 @@ function showNewHandToast() {
 function showRoundTransitionToast(round) {
   if (!toastManager) initToastManager();
   toastManager.showRoundTransition(round);
+}
+
+function showPlayerTurnToast(playerName) {
+  if (!toastManager) initToastManager();
+  toastManager.showPlayerTurn(playerName);
+}
+
+function showPlayerTimeoutToast(playerName) {
+  if (!toastManager) initToastManager();
+  toastManager.showPlayerTimeout(playerName);
+}
+
+function showTimeWarningToast(message) {
+  if (!toastManager) initToastManager();
+  toastManager.showTimeWarning(message);
 }

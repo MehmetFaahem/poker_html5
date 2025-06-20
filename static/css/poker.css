@@ -22,6 +22,11 @@
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  /* Responsive scaling variables */
+  --table-scale: 1;
+  --table-width: 900px;
+  --table-height: 500px;
 }
 
 /* Dark mode variables */
@@ -54,13 +59,16 @@ body {
   background: url("../images/poker_table.png") no-repeat center;
   background-size: cover;
   position: relative;
-  height: 500px;
-  width: 900px;
+  height: var(--table-height);
+  width: var(--table-width);
   margin: 20px auto;
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-xl);
   border: 2px solid var(--border-color);
   overflow: hidden;
+  transform: scale(var(--table-scale));
+  transform-origin: center top;
+  transition: transform 0.3s ease;
 }
 
 .poker-table::before {
@@ -213,7 +221,7 @@ body {
 
 #seat0 {
   left: 50px;
-  top: 350px;
+  top: 380px;
 }
 .seat0-button {
   left: 280px;
@@ -493,7 +501,7 @@ body {
   position: fixed;
   top: 30px;
   right: 30px;
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 10px;
   z-index: 100;
@@ -638,6 +646,7 @@ select option {
   box-shadow: var(--shadow-md);
   min-width: 200px;
   transition: var(--transition);
+  display: none;
 }
 
 .response-normal {
@@ -837,6 +846,18 @@ select option {
   background: var(--accent-color);
 }
 
+.toast.turn::before {
+  background: #17a2b8; /* Info blue */
+}
+
+.toast.timeout::before {
+  background: var(--danger-color);
+}
+
+.toast.warning::before {
+  background: var(--warning-color);
+}
+
 .toast-icon {
   margin-right: 10px;
   font-size: 16px;
@@ -858,6 +879,18 @@ select option {
   }
   50% {
     background: rgba(16, 185, 129, 0.2);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
   }
 }
 
@@ -1008,35 +1041,45 @@ body[data-theme="dark"] #game-response {
   box-shadow: var(--shadow-md);
 }
 
+/* Smooth responsive scaling for all screen sizes */
+@media (max-width: 1400px) {
+  :root {
+    --table-scale: calc(100vw / 1400);
+  }
+}
+
 @media (max-width: 1200px) {
+  :root {
+    --table-scale: calc(100vw / 1200);
+  }
+
+  body {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 1000px) {
+  :root {
+    --table-scale: calc(90vw / 900);
+  }
+
   .poker-table {
-    width: 800px;
-    height: 450px;
-  }
-
-  .seat {
-    width: 140px;
-    height: 140px;
-  }
-
-  .card {
-    width: 50px;
-    height: 70px;
-  }
-
-  .holecards {
-    width: 100px;
+    margin: 10px auto;
   }
 }
 
 @media (max-width: 900px) {
+  :root {
+    --table-scale: calc(85vw / 900);
+  }
+
   body {
     overflow-x: auto;
+    padding: 5px;
   }
 
   .poker-table {
-    width: 700px;
-    height: 400px;
+    margin: 5px auto;
   }
 
   #setup-options,
@@ -1045,37 +1088,60 @@ body[data-theme="dark"] #game-response {
     top: auto;
     left: auto;
     right: auto;
-    margin: 20px auto;
+    margin: 15px auto;
     max-width: 300px;
+    transform: scale(calc(1 / var(--table-scale)));
+    transform-origin: center;
   }
 
   #history {
     position: relative;
     left: auto;
     bottom: auto;
-    margin: 20px auto;
+    margin: 15px auto;
     width: 90%;
     max-width: 400px;
+    transform: scale(calc(1 / var(--table-scale)));
+    transform-origin: center;
   }
 
   #bet-range-container {
     position: relative;
     bottom: auto;
     right: auto;
-    margin: 20px auto;
+    margin: 15px auto;
     width: 90%;
     max-width: 300px;
+    transform: scale(calc(1 / var(--table-scale)));
+    transform-origin: center;
   }
 
   #action-options {
     position: relative;
     bottom: auto;
     left: auto;
-    transform: none;
-    margin: 20px auto;
+    transform: scale(calc(1 / var(--table-scale)));
+    transform-origin: center;
+    margin: 15px auto;
     justify-content: center;
     max-width: 400px;
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --table-scale: calc(80vw / 900);
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --table-scale: calc(75vw / 900);
+  }
+
+  .poker-table {
+    margin: 2px auto;
   }
 }
 

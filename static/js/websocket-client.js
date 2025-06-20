@@ -197,7 +197,52 @@ class PokerWebSocketClient {
         console.log("Player win:", message);
 
         // Show win toast
-        showPlayerWinToast(message.winnerName, message.amount);
+        const handInfo = message.handType ? ` with ${message.handType}` : "";
+        showPlayerWinToast(message.winnerName, message.amount, handInfo);
+
+        // Log to history
+        gui_log_to_history(
+          `${message.winnerName} wins $${message.amount}${handInfo}!`
+        );
+        break;
+
+      case "multiple_winners":
+        console.log("Multiple winners:", message);
+
+        // Show multiple winners toast
+        const winnerNames = message.winners.map((w) => w.winnerName).join(", ");
+        const handTypeInfo = message.handType
+          ? ` with ${message.handType}`
+          : "";
+        showPlayerWinToast(`${winnerNames}`, "split pot", handTypeInfo);
+
+        // Log each winner
+        message.winners.forEach((winner) => {
+          gui_log_to_history(
+            `${winner.winnerName} wins $${winner.amount}${handTypeInfo}!`
+          );
+        });
+        break;
+
+      case "player_timeout":
+        console.log("Player timeout:", message);
+
+        const timeoutPlayerName =
+          this.getPlayerName(message.playerId) || `Player ${message.playerId}`;
+
+        // Show timeout toast
+        showPlayerTimeoutToast(timeoutPlayerName);
+
+        // Log timeout
+        gui_log_to_history(`${timeoutPlayerName} timed out and folded`);
+
+        if (message.gameState) {
+          this.updateGameUI(message.gameState);
+        }
+
+        if (this.onGameUpdate) {
+          this.onGameUpdate(message);
+        }
 
         // Update game state
         if (message.gameState) {
@@ -293,7 +338,8 @@ class PokerWebSocketClient {
       gui_hilite_player("", "", i);
     }
 
-    // Update players
+    // Update players and track current player
+    let currentPlayerName = null;
     if (gameStateData.players) {
       gameStateData.players.forEach((player) => {
         const seat = player.seat;
@@ -321,12 +367,29 @@ class PokerWebSocketClient {
           gui_set_player_cards(card1, card2, seat, player.isFolded);
         }
 
-        // Highlight current player
-        if (player.isCurrentTurn && gameStateData.gameState?.isGameActive) {
-          gui_hilite_player("yellow", "black", seat);
+        // Highlight current player and track their name
+        if (
+          player.isCurrentPlayer &&
+          gameStateData.gameState?.isGameActive &&
+          !player.isFolded &&
+          !player.isAllIn
+        ) {
+          gui_hilite_player("gold", "black", seat);
+          currentPlayerName = player.name;
         }
       });
     }
+
+    // Show current player toast (only for other players, not yourself)
+    if (currentPlayerName && currentPlayerName !== this.lastCurrentPlayer) {
+      if (currentPlayerName !== this.playerName) {
+        this.showCurrentPlayerToast(currentPlayerName);
+      }
+      this.lastCurrentPlayer = currentPlayerName;
+    }
+
+    // Update countdown timer display
+    this.updateActionTimer(gameStateData.gameState);
 
     // Update community cards
     if (gameStateData.gameState?.communityCards) {
@@ -340,10 +403,11 @@ class PokerWebSocketClient {
       gui_place_dealer_button(gameStateData.gameState.button);
     }
 
-    // Show room settings information
-    if (gameStateData.roomSettings) {
+    // Show room settings information (only once)
+    if (gameStateData.roomSettings && !this.roomSettingsShown) {
       const settingsText = `Room Settings - Starting Chips: $${gameStateData.roomSettings.startingChips}, Min Call: $${gameStateData.roomSettings.minCall}, Max Call: $${gameStateData.roomSettings.maxCall}`;
       gui_log_to_history(settingsText);
+      this.roomSettingsShown = true;
     }
 
     // Update action buttons for current player
@@ -388,7 +452,7 @@ class PokerWebSocketClient {
       "Fold",
       callText,
       () => this.sendPlayerAction({ type: "fold" }),
-      () => this.sendPlayerAction({ type: "call" })
+      () => this.sendPlayerAction({ type: canCheck ? "check" : "call" })
     );
 
     // Setup bet range for raising
@@ -408,6 +472,108 @@ class PokerWebSocketClient {
       });
     } else {
       gui_hide_bet_range();
+    }
+  }
+
+  // Show toast indicating whose turn it is
+  showCurrentPlayerToast(playerName) {
+    if (typeof showPlayerTurnToast === "function") {
+      showPlayerTurnToast(playerName);
+    } else {
+      // Fallback to console log if toast function not available
+      console.log(`It's ${playerName}'s turn`);
+      gui_log_to_history(`It's ${playerName}'s turn`);
+    }
+  }
+
+  // Update action timer display
+  updateActionTimer(gameState) {
+    if (!gameState || !gameState.isGameActive) {
+      this.clearTimerDisplay();
+      return;
+    }
+
+    // If there's time remaining, show countdown
+    if (
+      gameState.timeRemaining !== null &&
+      gameState.timeRemaining !== undefined
+    ) {
+      const seconds = Math.ceil(gameState.timeRemaining / 1000);
+
+      if (seconds > 0) {
+        // Update timer display
+        this.showTimerDisplay(seconds);
+
+        // If it's the current player's turn and time is running low, show warning
+        const myPlayer = this.gameState?.players?.find(
+          (p) => p.id === this.playerId
+        );
+        if (myPlayer && myPlayer.isCurrentPlayer && seconds <= 10) {
+          this.showTimeWarning(seconds);
+        }
+      } else {
+        this.clearTimerDisplay();
+      }
+    } else {
+      this.clearTimerDisplay();
+    }
+  }
+
+  // Show timer display in UI
+  showTimerDisplay(seconds) {
+    let timerElement = document.getElementById("action-timer");
+    if (!timerElement) {
+      // Create timer element if it doesn't exist
+      timerElement = document.createElement("div");
+      timerElement.id = "action-timer";
+      timerElement.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-weight: bold;
+        z-index: 1000;
+        font-family: Arial, sans-serif;
+      `;
+      document.body.appendChild(timerElement);
+    }
+
+    timerElement.textContent = `Time: ${seconds}s`;
+
+    // Change color when time is running low
+    if (seconds <= 5) {
+      timerElement.style.background = "rgba(255, 0, 0, 0.8)";
+      timerElement.style.animation = "pulse 1s infinite";
+    } else if (seconds <= 10) {
+      timerElement.style.background = "rgba(255, 165, 0, 0.8)";
+      timerElement.style.animation = "none";
+    } else {
+      timerElement.style.background = "rgba(0, 0, 0, 0.8)";
+      timerElement.style.animation = "none";
+    }
+  }
+
+  // Clear timer display
+  clearTimerDisplay() {
+    const timerElement = document.getElementById("action-timer");
+    if (timerElement) {
+      timerElement.remove();
+    }
+  }
+
+  // Show time warning for current player
+  showTimeWarning(seconds) {
+    if (seconds === 10) {
+      if (typeof showTimeWarningToast === "function") {
+        showTimeWarningToast(`10 seconds remaining!`);
+      }
+    } else if (seconds === 5) {
+      if (typeof showTimeWarningToast === "function") {
+        showTimeWarningToast(`5 seconds left!`);
+      }
     }
   }
 

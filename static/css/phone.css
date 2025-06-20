@@ -7,14 +7,12 @@
     overflow-x: auto;
   }
 
+  /* Let the main CSS handle table scaling with CSS variables */
   .poker-table {
-    width: 100%;
-    max-width: 800px;
-    height: auto;
-    min-height: 400px;
+    width: var(--table-width);
+    height: var(--table-height);
+    min-height: 300px;
     margin: 20px auto;
-    transform: scale(0.9);
-    transform-origin: center top;
   }
 
   /* Make seats more touch-friendly */
@@ -267,14 +265,13 @@
 
 /* Extra small screens */
 @media only screen and (max-width: 480px) {
-  .poker-table {
-    transform: scale(0.8);
-  }
+  /* Table scaling is handled by main CSS variables */
 
   #setup-options,
   #multiplayer-options {
     flex-direction: column;
     gap: 6px;
+    font-size: 90%;
   }
 
   .setup-button {
@@ -286,6 +283,7 @@
   #action-options {
     flex-direction: column;
     gap: 8px;
+    font-size: 90%;
   }
 
   .action-button {
@@ -311,9 +309,12 @@
 
 /* Landscape orientation optimizations */
 @media only screen and (max-height: 600px) and (orientation: landscape) {
+  :root {
+    --table-scale: calc(min(85vw, 70vh) / 500);
+  }
+
   .poker-table {
-    transform: scale(0.7);
-    margin: 10px auto;
+    margin: 5px auto;
   }
 
   #setup-options,
@@ -321,20 +322,24 @@
     top: 10px;
     flex-direction: row;
     gap: 6px;
+    transform: scale(calc(1 / var(--table-scale))) !important;
   }
 
   #game-response {
     top: 30%;
     font-size: 13px;
+    transform: scale(calc(1 / var(--table-scale)));
   }
 
   #history {
     bottom: 60px;
     height: 80px;
+    transform: scale(calc(1 / var(--table-scale))) !important;
   }
 
   #action-options {
     bottom: 10px;
+    transform: scale(calc(1 / var(--table-scale))) !important;
   }
 }
 

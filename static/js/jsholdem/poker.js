@@ -19,6 +19,7 @@ var cards = new Array(52);
 var players;
 var board, deck_index, button_index;
 var current_bettor_index, current_bet_amount, current_min_raise;
+var players_acted_this_round; // Track which players have acted in current betting round
 
 function leave_pseudo_alert() {
   gui_write_modal_box("");
@@ -223,6 +224,13 @@ function new_round() {
   clear_bets();
   clear_pot();
   current_min_raise = 0;
+
+  // Initialize tracking for the new round
+  players_acted_this_round = new Array(players.length);
+  for (var i = 0; i < players.length; i++) {
+    players_acted_this_round[i] = false;
+  }
+
   collect_cards();
   button_index = get_next_player_position(button_index, 1);
   var i;
@@ -350,6 +358,14 @@ function deal_and_write_b() {
 }
 
 function go_to_betting() {
+  // Initialize tracking for new betting round if not already set
+  if (!players_acted_this_round) {
+    players_acted_this_round = new Array(players.length);
+    for (var i = 0; i < players.length; i++) {
+      players_acted_this_round[i] = false;
+    }
+  }
+
   if (get_num_betting() > 1) {
     setTimeout(main, 1000 * global_speed);
   } else {
@@ -444,6 +460,12 @@ function main() {
     players[current_bettor_index].status == "CALL" &&
     players[current_bettor_index].subtotal_bet == current_bet_amount
   ) {
+    increment_bettor_index = 1;
+  } else if (
+    players_acted_this_round &&
+    players_acted_this_round[current_bettor_index]
+  ) {
+    // Player has already acted this round, move to next player
     increment_bettor_index = 1;
   } else {
     players[current_bettor_index].status = "";
@@ -589,6 +611,15 @@ function main() {
     }
     if (s != "BUST" && s != "FOLD") {
       if (has_money(j) && players[j].subtotal_bet < current_bet_amount) {
+        can_break = false;
+        break;
+      }
+      // Also check if this active player hasn't acted yet
+      if (
+        players_acted_this_round &&
+        !players_acted_this_round[j] &&
+        has_money(j)
+      ) {
         can_break = false;
         break;
       }
@@ -895,6 +926,13 @@ function ready_for_next_card() {
   }
   current_min_raise = BIG_BLIND;
   reset_player_statuses(2);
+
+  // Reset tracking for new betting round
+  players_acted_this_round = new Array(players.length);
+  for (i = 0; i < players.length; i++) {
+    players_acted_this_round[i] = false;
+  }
+
   if (players[button_index].status == "FOLD") {
     players[get_next_player_position(button_index, -1)].status = "OPTION";
   } else {
@@ -1005,6 +1043,12 @@ function human_call() {
   // Clear buttons
   gui_hide_fold_call_click();
   players[0].status = "CALL";
+
+  // Mark player as having acted this round
+  if (players_acted_this_round) {
+    players_acted_this_round[0] = true;
+  }
+
   current_bettor_index = get_next_player_position(0, 1);
   the_bet_function(0, current_bet_amount - players[0].subtotal_bet);
   write_player(0, 0, 0);
@@ -1018,6 +1062,12 @@ function handle_human_bet(bet_amount) {
   var is_ok_bet = the_bet_function(0, bet_amount);
   if (is_ok_bet) {
     players[0].status = "CALL";
+
+    // Mark player as having acted this round
+    if (players_acted_this_round) {
+      players_acted_this_round[0] = true;
+    }
+
     current_bettor_index = get_next_player_position(0, 1);
     write_player(0, 0, 0);
     main();
@@ -1029,6 +1079,12 @@ function handle_human_bet(bet_amount) {
 
 function human_fold() {
   players[0].status = "FOLD";
+
+  // Mark player as having acted this round
+  if (players_acted_this_round) {
+    players_acted_this_round[0] = true;
+  }
+
   // Clear the buttons - not able to call
   gui_hide_fold_call_click();
   current_bettor_index = get_next_player_position(0, 1);
@@ -1066,6 +1122,12 @@ function bet_from_bot(x) {
     players[x].status = "FOLD";
     the_bet_function(x, 0);
   }
+
+  // Mark bot as having acted this round
+  if (players_acted_this_round) {
+    players_acted_this_round[x] = true;
+  }
+
   write_player(current_bettor_index, 0, 0);
   current_bettor_index = get_next_player_position(current_bettor_index, 1);
   main();
@@ -1456,10 +1518,21 @@ function initializeMultiplayerUI() {
 
   // Initialize WebSocket connection
   initializeMultiplayer();
+
+  // Add single player button functionality
+  const singleplayerBtn = document.getElementById("singleplayer-button");
+  if (singleplayerBtn) {
+    singleplayerBtn.onclick = function () {
+      // Switch to single-player mode
+      gui_write_game_response("Starting single-player game...");
+      gui_set_game_response_font_color("blue");
+      new_game_singleplayer();
+    };
+  }
 }
 
 function showMultiplayerOptions() {
-  gui_write_basic_general_text("Choose multiplayer option");
+  gui_write_basic_general_text("");
   gui_write_game_response(
     "Welcome to Multiplayer Poker! Create or join a room to start playing."
   );

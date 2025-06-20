@@ -2,6 +2,7 @@ const WebSocket = require("ws");
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const HandEvaluator = require("./hand-evaluator");
 
 // Create HTTP server to serve static files
 const server = http.createServer((req, res) => {
@@ -49,6 +50,7 @@ class GameRoom {
       minCall: roomSettings.minCall || 5,
       maxCall: roomSettings.maxCall || 50,
       creatorId: roomSettings.creatorId || null,
+      actionTimeout: roomSettings.actionTimeout || 30000, // 30 seconds default
     };
     this.players = new Map(); // playerId -> player data
     this.gameState = {
@@ -61,9 +63,14 @@ class GameRoom {
       minRaise: 0,
       round: "preflop", // preflop, flop, turn, river
       button: 0,
+      actionStartTime: null,
+      currentPlayerId: null,
+      playersActedThisRound: new Map(), // Track which players have acted this round
     };
     this.deck = [];
     this.maxPlayers = 10;
+    this.handEvaluator = new HandEvaluator();
+    this.timeoutTimer = null;
   }
 
   addPlayer(playerId, playerData) {
@@ -124,6 +131,7 @@ class GameRoom {
     this.gameState.currentBet = 0;
     this.gameState.round = "preflop";
     this.gameState.isGameActive = true;
+    this.gameState.playersActedThisRound = new Map();
 
     // Create and shuffle deck
     this.createDeck();
@@ -194,6 +202,20 @@ class GameRoom {
 
     this.gameState.currentBet = bigBlind;
     this.gameState.currentBettor = (bbIndex + 1) % activePlayers.length;
+
+    // Initialize player action tracking for preflop betting
+    this.gameState.playersActedThisRound = new Map();
+
+    // Start timer for first player to act after big blind
+    const firstPlayerIndex = (bbIndex + 1) % activePlayers.length;
+    const firstPlayer = activePlayers[firstPlayerIndex];
+    const firstPlayerId = [...this.players.entries()].find(
+      ([id, player]) => player === firstPlayer
+    )?.[0];
+
+    if (firstPlayerId && !firstPlayer.isAllIn) {
+      this.startActionTimer(firstPlayerId);
+    }
   }
 
   processPlayerAction(playerId, action) {
@@ -207,9 +229,22 @@ class GameRoom {
 
     if (currentPlayerIndex !== this.gameState.currentBettor) return false;
 
+    // Clear the action timer since player acted
+    this.clearActionTimer();
+
+    // Mark this player as having acted in this round
+    this.gameState.playersActedThisRound.set(playerId, true);
+
     switch (action.type) {
       case "fold":
         player.isFolded = true;
+        break;
+
+      case "check":
+        // Check is only valid when current bet equals player's bet
+        if (this.gameState.currentBet !== player.currentBet) {
+          return false; // Invalid check - must call or fold
+        }
         break;
 
       case "call":
@@ -287,8 +322,24 @@ class GameRoom {
 
     // Check if betting round is complete
     if (this.isBettingRoundComplete()) {
+      this.clearActionTimer();
       const winMessage = this.advanceToNextRound();
       return { success: true, winMessage };
+    }
+
+    // Start timer for next player
+    const nextActivePlayers = [...this.players.values()].filter(
+      (p) => p.isActive && !p.isFolded
+    );
+    if (nextActivePlayers.length > this.gameState.currentBettor) {
+      const nextPlayer = nextActivePlayers[this.gameState.currentBettor];
+      const nextPlayerId = [...this.players.entries()].find(
+        ([id, player]) => player === nextPlayer
+      )?.[0];
+
+      if (nextPlayerId && !nextPlayer.isAllIn) {
+        this.startActionTimer(nextPlayerId);
+      }
     }
 
     return { success: true };
@@ -318,10 +369,22 @@ class GameRoom {
     );
 
     // Check if all players have matched the current bet or are all-in
-    return activePlayers.every(
+    const allBetsMatched = activePlayers.every(
       (player) =>
         player.currentBet === this.gameState.currentBet || player.isAllIn
     );
+
+    // Also check if all active players have acted this round
+    const allPlayersActed = activePlayers.every((player) => {
+      const playerId = [...this.players.entries()].find(
+        ([id, p]) => p === player
+      )?.[0];
+      return (
+        player.isAllIn || this.gameState.playersActedThisRound.get(playerId)
+      );
+    });
+
+    return allBetsMatched && allPlayersActed;
   }
 
   advanceToNextRound() {
@@ -352,6 +415,24 @@ class GameRoom {
 
     this.gameState.currentBet = 0;
     this.gameState.currentBettor = this.gameState.button;
+
+    // Reset player action tracking for new betting round
+    this.gameState.playersActedThisRound = new Map();
+
+    // Start timer for first player in new betting round
+    const activePlayers = [...this.players.values()].filter(
+      (p) => p.isActive && !p.isFolded
+    );
+    if (activePlayers.length > this.gameState.currentBettor) {
+      const currentPlayer = activePlayers[this.gameState.currentBettor];
+      const currentPlayerId = [...this.players.entries()].find(
+        ([id, player]) => player === currentPlayer
+      )?.[0];
+
+      if (currentPlayerId && !currentPlayer.isAllIn) {
+        this.startActionTimer(currentPlayerId);
+      }
+    }
   }
 
   dealFlop() {
@@ -408,23 +489,86 @@ class GameRoom {
 
       return winMessage;
     } else {
-      // Multiple players - need hand evaluation
-      // For now, just give pot to first player (simplified)
-      const winner = activePlayers[0];
-      const winAmount = this.gameState.pot;
-      winner.bankroll += winAmount;
+      // Multiple players - use proper hand evaluation
+      const evaluationResult = this.handEvaluator.getWinners(
+        activePlayers,
+        this.gameState.communityCards
+      );
 
-      const winMessage = {
-        type: "player_win",
-        winnerId: [...this.players.entries()].find(
+      if (!evaluationResult) {
+        // Fallback to high card
+        const winner = activePlayers[0];
+        const winAmount = this.gameState.pot;
+        winner.bankroll += winAmount;
+
+        return {
+          type: "player_win",
+          winnerId: [...this.players.entries()].find(
+            ([id, player]) => player === winner
+          )?.[0],
+          winnerName: winner.name,
+          amount: winAmount,
+          handType: "High Card",
+          gameState: this.getGameStateForPlayer(null),
+        };
+      }
+
+      // Count the winners
+      const winnerIndices = [];
+      for (let i = 0; i < evaluationResult.winners.length; i++) {
+        if (evaluationResult.winners[i]) {
+          winnerIndices.push(i);
+        }
+      }
+
+      const numWinners = winnerIndices.length;
+      const winAmountPerPlayer = Math.floor(this.gameState.pot / numWinners);
+      const remainder = this.gameState.pot % numWinners;
+
+      // Distribute winnings
+      const winnerMessages = [];
+      for (let i = 0; i < winnerIndices.length; i++) {
+        const winnerIndex = winnerIndices[i];
+        const winner = activePlayers[winnerIndex];
+        let winAmount = winAmountPerPlayer;
+
+        // Give remainder to first winner (dealer's left)
+        if (i === 0) {
+          winAmount += remainder;
+        }
+
+        winner.bankroll += winAmount;
+
+        const winnerId = [...this.players.entries()].find(
           ([id, player]) => player === winner
-        )?.[0],
-        winnerName: winner.name,
-        amount: winAmount,
-        gameState: this.getGameStateForPlayer(null),
-      };
+        )?.[0];
 
-      return winMessage;
+        winnerMessages.push({
+          winnerId,
+          winnerName: winner.name,
+          amount: winAmount,
+          handType: evaluationResult.handType,
+        });
+      }
+
+      // Return appropriate message format
+      if (winnerMessages.length === 1) {
+        return {
+          type: "player_win",
+          winnerId: winnerMessages[0].winnerId,
+          winnerName: winnerMessages[0].winnerName,
+          amount: winnerMessages[0].amount,
+          handType: winnerMessages[0].handType,
+          gameState: this.getGameStateForPlayer(null),
+        };
+      } else {
+        return {
+          type: "multiple_winners",
+          winners: winnerMessages,
+          handType: evaluationResult.handType,
+          gameState: this.getGameStateForPlayer(null),
+        };
+      }
     }
   }
 
@@ -447,12 +591,82 @@ class GameRoom {
 
   endGame() {
     this.gameState.isGameActive = false;
+    this.clearActionTimer();
+  }
+
+  // Timeout management
+  startActionTimer(playerId) {
+    this.clearActionTimer();
+    this.gameState.actionStartTime = Date.now();
+    this.gameState.currentPlayerId = playerId;
+
+    this.timeoutTimer = setTimeout(() => {
+      this.handlePlayerTimeout(playerId);
+    }, this.roomSettings.actionTimeout);
+  }
+
+  clearActionTimer() {
+    if (this.timeoutTimer) {
+      clearTimeout(this.timeoutTimer);
+      this.timeoutTimer = null;
+    }
+    this.gameState.actionStartTime = null;
+    this.gameState.currentPlayerId = null;
+  }
+
+  handlePlayerTimeout(playerId) {
+    console.log(`Player ${playerId} timed out, auto-folding`);
+
+    // Auto-fold the player
+    const result = this.processPlayerAction(playerId, { type: "fold" });
+
+    if (result && result.success) {
+      // Broadcast the timeout action
+      const timeoutMessage = {
+        type: "player_timeout",
+        playerId: playerId,
+        action: { type: "fold" },
+        gameState: {}, // Will be filled by broadcastToRoom
+      };
+
+      // Use the existing broadcast system
+      const broadcastFunction = this.broadcastFunction;
+      if (broadcastFunction) {
+        broadcastFunction(this.id, timeoutMessage);
+      }
+
+      // If there's a win message from the auto-fold, broadcast it too
+      if (result.winMessage) {
+        setTimeout(() => {
+          if (broadcastFunction) {
+            broadcastFunction(this.id, result.winMessage);
+          }
+        }, 1000);
+      }
+    }
+  }
+
+  // Store broadcast function reference for timeout callbacks
+  setBroadcastFunction(broadcastFn) {
+    this.broadcastFunction = broadcastFn;
   }
 
   getGameStateForPlayer(playerId) {
     const player = this.players.get(playerId);
+
+    // Calculate remaining time for current player
+    let timeRemaining = null;
+    if (this.gameState.actionStartTime && this.gameState.currentPlayerId) {
+      const elapsed = Date.now() - this.gameState.actionStartTime;
+      timeRemaining = Math.max(0, this.roomSettings.actionTimeout - elapsed);
+    }
+
     return {
-      gameState: this.gameState,
+      gameState: {
+        ...this.gameState,
+        timeRemaining: timeRemaining,
+        currentPlayerId: this.gameState.currentPlayerId,
+      },
       roomSettings: this.roomSettings,
       players: Array.from(this.players.entries()).map(([id, p]) => ({
         id,
@@ -463,6 +677,7 @@ class GameRoom {
         isActive: p.isActive,
         isFolded: p.isFolded,
         isAllIn: p.isAllIn,
+        isCurrentPlayer: id === this.gameState.currentPlayerId,
         cards:
           id === playerId ? p.cards : p.isFolded ? [] : ["blinded", "blinded"],
       })),
@@ -477,7 +692,9 @@ const playerConnections = new Map(); // playerId -> { ws, roomId }
 
 function createRoom(roomSettings = {}) {
   const roomId = Math.random().toString(36).substring(2, 8);
-  gameRooms.set(roomId, new GameRoom(roomId, roomSettings));
+  const room = new GameRoom(roomId, roomSettings);
+  room.setBroadcastFunction(broadcastToRoom);
+  gameRooms.set(roomId, room);
   return roomId;
 }
 
