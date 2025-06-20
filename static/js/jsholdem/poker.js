@@ -225,7 +225,7 @@ function new_round() {
   clear_pot();
   current_min_raise = 0;
 
-  // Initialize tracking for the new round
+  // Initialize tracking for the new round - no players have acted yet
   players_acted_this_round = new Array(players.length);
   for (var i = 0; i < players.length; i++) {
     players_acted_this_round[i] = false;
@@ -238,18 +238,18 @@ function new_round() {
     write_player(i, 0, 0);
   }
 
-  for (i = 0; i < board.length; i++) {
-    if (i > 4) {
-      // board.length != 5
-      continue;
-    }
+  // Clear all community cards and burn cards at start of new hand
+  // First clear the data structures
+  for (i = 0; i < 5; i++) {
     board[i] = "";
-    gui_lay_board_card(i, board[i]); // Clear the board
   }
-  for (i = 0; i < 3; i++) {
-    board[i] = "";
-    gui_burn_board_card(i, board[i]);
-  }
+
+  // Then clear the visual display completely
+  gui_clear_all_board_cards();
+
+  console.log(
+    "Starting new round - community cards cleared, board is completely clean"
+  );
 
   var message = "<tr><td><font size=+2><b>New round</b></font>";
   gui_write_game_response(message);
@@ -295,14 +295,33 @@ function blinds_and_deal() {
     SMALL_BLIND = 25;
     BIG_BLIND = 50;
   }
-  var small_blind = get_next_player_position(button_index, 1);
+
+  var small_blind, big_blind;
+
+  if (num_playing == 2) {
+    // Heads-up poker: Dealer (button) is small blind, opponent is big blind
+    small_blind = button_index; // Dealer = Small Blind
+    big_blind = get_next_player_position(button_index, 1); // Opponent = Big Blind
+  } else {
+    // Multi-player poker: Standard blind positions
+    small_blind = get_next_player_position(button_index, 1);
+    big_blind = get_next_player_position(small_blind, 1);
+  }
+
   the_bet_function(small_blind, SMALL_BLIND);
   write_player(small_blind, 0, 0);
-  var big_blind = get_next_player_position(small_blind, 1);
   the_bet_function(big_blind, BIG_BLIND);
   write_player(big_blind, 0, 0);
   players[big_blind].status = "OPTION";
-  current_bettor_index = get_next_player_position(big_blind, 1);
+
+  if (num_playing == 2) {
+    // Heads-up: Pre-flop betting starts with dealer (small blind)
+    current_bettor_index = small_blind;
+  } else {
+    // Multi-player: Pre-flop betting starts after big blind
+    current_bettor_index = get_next_player_position(big_blind, 1);
+  }
+
   deal_and_write_a();
 }
 
@@ -366,11 +385,9 @@ function go_to_betting() {
     }
   }
 
-  if (get_num_betting() > 1) {
-    setTimeout(main, 1000 * global_speed);
-  } else {
-    setTimeout(ready_for_next_card, 1000 * global_speed);
-  }
+  // Always start betting - don't skip based on number of players with money
+  // The main() function will handle when to end the betting round properly
+  setTimeout(main, 1000 * global_speed);
 }
 
 function unroll_table(last_pos, current_pos, final_call) {
@@ -513,12 +530,19 @@ function main() {
       var call_button_text = "<u>C</u>all";
       var fold_button_text = "<font color=white><u>F</u>old</font>";
       var to_call = current_bet_amount - players[0].subtotal_bet;
+
+      console.log("=== HUMAN PLAYER TURN ===");
+      console.log("current_bet_amount:", current_bet_amount);
+      console.log("players[0].subtotal_bet:", players[0].subtotal_bet);
+      console.log("to_call calculated as:", to_call);
+
       if (to_call > players[0].bankroll) {
         to_call = players[0].bankroll;
       }
       call_button_text += " $" + to_call;
       var that_is_not_the_key_you_are_looking_for;
       if (to_call == 0) {
+        console.log("SHOWING CHECK BUTTON - to_call is 0");
         call_button_text = "<u>C</u>heck";
         fold_button_text = 0;
         that_is_not_the_key_you_are_looking_for = function (key) {
@@ -699,28 +723,44 @@ function main() {
 
   console.log("Can end betting round:", can_break);
 
-  // Safety check: if no one can act and betting round won't end, force it to end
+  // Enhanced safety check: ensure all active players have had a chance to act
   if (!can_break) {
-    var anyone_can_act = false;
+    var all_active_players_acted = true;
+    var any_player_needs_to_match_bet = false;
+
     for (var k = 0; k < players.length; k++) {
       if (
         players[k].status != "BUST" &&
         players[k].status != "FOLD" &&
         has_money(k)
       ) {
-        if (
-          !players_acted_this_round ||
-          !players_acted_this_round[k] ||
-          players[k].subtotal_bet < current_bet_amount
-        ) {
-          anyone_can_act = true;
+        // Player hasn't acted this round
+        if (!players_acted_this_round || !players_acted_this_round[k]) {
+          all_active_players_acted = false;
+          console.log("Player", k, "hasn't acted yet");
+          break;
+        }
+
+        // Player needs to match the current bet
+        if (players[k].subtotal_bet < current_bet_amount) {
+          any_player_needs_to_match_bet = true;
+          console.log(
+            "Player",
+            k,
+            "needs to match bet:",
+            current_bet_amount,
+            "vs",
+            players[k].subtotal_bet
+          );
           break;
         }
       }
     }
-    if (!anyone_can_act) {
-      console.warn(
-        "SAFETY: No one can act but betting round won't end - forcing end (this should be rare now)"
+
+    // If all active players have acted AND no one needs to match the bet, end the round
+    if (all_active_players_acted && !any_player_needs_to_match_bet) {
+      console.log(
+        "All players acted and bets matched - forcing end of betting round"
       );
       can_break = true;
     }
@@ -1048,10 +1088,13 @@ function ready_for_next_card() {
     players[i].total_bet += players[i].subtotal_bet;
   }
   clear_bets();
+
+  // If all community cards are dealt, end the hand
   if (board[4]) {
     handle_end_of_round();
     return;
   }
+
   current_min_raise = BIG_BLIND;
   reset_player_statuses(2);
 
@@ -1061,12 +1104,28 @@ function ready_for_next_card() {
     players_acted_this_round[i] = false;
   }
 
-  if (players[button_index].status == "FOLD") {
-    players[get_next_player_position(button_index, -1)].status = "OPTION";
+  var num_playing = number_of_active_players();
+
+  if (num_playing == 2) {
+    // Heads-up: Post-flop betting starts with opponent (non-dealer), dealer acts last
+    var opponent = get_next_player_position(button_index, 1);
+    if (players[opponent].status == "FOLD") {
+      players[button_index].status = "OPTION";
+      current_bettor_index = button_index;
+    } else {
+      players[opponent].status = "OPTION";
+      current_bettor_index = opponent;
+    }
   } else {
-    players[button_index].status = "OPTION";
+    // Multi-player: Post-flop betting starts with first player after dealer
+    if (players[button_index].status == "FOLD") {
+      players[get_next_player_position(button_index, -1)].status = "OPTION";
+    } else {
+      players[button_index].status = "OPTION";
+    }
+    current_bettor_index = get_next_player_position(button_index, 1);
   }
-  current_bettor_index = get_next_player_position(button_index, 1);
+
   var show_cards = 0;
   if (num_betting < 2) {
     show_cards = 1;
@@ -1084,11 +1143,16 @@ function ready_for_next_card() {
   if (num_betting < 2) {
     RUN_EM = 1;
   }
+
+  // Deal community cards step by step - only deal the next card in sequence
   if (!board[0]) {
+    // Deal flop (3 cards)
     deal_flop();
   } else if (!board[3]) {
+    // Deal turn (1 card)
     deal_fourth();
   } else if (!board[4]) {
+    // Deal river (1 card)
     deal_fifth();
   }
 }
@@ -1117,7 +1181,23 @@ function the_bet_function(player_index, bet_amount) {
     bet_amount + players[player_index].subtotal_bet ==
     current_bet_amount
   ) {
-    // CALL
+    // CALL - bet_amount should always be > 0 here
+    // Validate: if current_bet_amount > player's subtotal_bet, bet_amount must be > 0
+    var amount_to_call =
+      current_bet_amount - players[player_index].subtotal_bet;
+    if (amount_to_call > 0 && bet_amount <= 0) {
+      // Player is trying to call $0 when there's money to call - invalid
+      if (player_index == 0) {
+        my_pseudo_alert(
+          "Invalid action: You cannot call $0 when there is $" +
+            amount_to_call +
+            " to call. You must call $" +
+            amount_to_call +
+            ", raise, or fold."
+        );
+      }
+      return 0;
+    }
     players[player_index].status = "CALL";
   } else if (
     current_bet_amount >
@@ -1172,15 +1252,47 @@ function human_call() {
 
   // Clear buttons
   gui_hide_fold_call_click();
-  players[0].status = "CALL";
 
-  // Mark player as having acted this round
+  // Mark player as having acted this round BEFORE processing the bet
   if (players_acted_this_round) {
     players_acted_this_round[0] = true;
+    console.log("Player 0 marked as acted (call/check)");
+  }
+
+  // Process the call/check action
+  var call_amount = current_bet_amount - players[0].subtotal_bet;
+
+  console.log("human_call: current_bet_amount =", current_bet_amount);
+  console.log("human_call: players[0].subtotal_bet =", players[0].subtotal_bet);
+  console.log("human_call: call_amount =", call_amount);
+
+  if (call_amount > 0) {
+    // There's a bet to call - this should be a CALL action
+    console.log("Processing CALL action for $" + call_amount);
+    players[0].status = "CALL";
+    var bet_result = the_bet_function(0, call_amount);
+    if (!bet_result) {
+      // the_bet_function failed - this shouldn't happen for a valid call
+      console.error("the_bet_function failed for call amount:", call_amount);
+      my_pseudo_alert("Invalid call action.");
+      return;
+    }
+    // Note: the_bet_function already updates the pot display
+  } else if (call_amount === 0) {
+    // No bet to call, this is a check
+    console.log("Processing CHECK action");
+    players[0].status = "CHECK";
+    // Update pot display even for check (to ensure it's current)
+    var current_pot_size = get_pot_size();
+    gui_write_basic_general(current_pot_size);
+  } else {
+    // This shouldn't happen (negative call amount), but handle it
+    console.error("Invalid call amount (negative):", call_amount);
+    my_pseudo_alert("Invalid action: Cannot call negative amount.");
+    return;
   }
 
   current_bettor_index = get_next_player_position(0, 1);
-  the_bet_function(0, current_bet_amount - players[0].subtotal_bet);
   write_player(0, 0, 0);
   main();
 }
@@ -1201,6 +1313,7 @@ function handle_human_bet(bet_amount) {
     // Mark player as having acted this round
     if (players_acted_this_round) {
       players_acted_this_round[0] = true;
+      console.log("Player 0 marked as acted (bet/raise)");
     }
 
     current_bettor_index = get_next_player_position(0, 1);
@@ -1220,6 +1333,7 @@ function human_fold() {
   // Mark player as having acted this round
   if (players_acted_this_round) {
     players_acted_this_round[0] = true;
+    console.log("Player 0 marked as acted (fold)");
   }
 
   // Clear the buttons - not able to call
@@ -1255,10 +1369,16 @@ function bet_from_bot(x) {
       players[x].status = ""; // RAISE
     }
   }
-  if (the_bet_function(x, b) == 0) {
+
+  var bet_successful = the_bet_function(x, b);
+  if (bet_successful == 0) {
     players[x].status = "FOLD";
     the_bet_function(x, 0);
   }
+
+  // Always update pot display after bot action
+  var current_pot_size = get_pot_size();
+  gui_write_basic_general(current_pot_size);
 
   // Mark bot as having acted this round
   if (players_acted_this_round) {

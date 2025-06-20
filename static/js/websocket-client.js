@@ -19,6 +19,13 @@ class PokerWebSocketClient {
 
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
+    this.reconnectInterval = 2000; // 2 seconds
+    this.lastCurrentPlayer = null;
+    this.roomSettingsShown = false;
+    // Add timer-related properties
+    this.timerInterval = null;
+    this.timerStartTime = null;
+    this.timerDuration = null;
   }
 
   connect(serverUrl = null) {
@@ -160,6 +167,9 @@ class PokerWebSocketClient {
 
         // Show new hand toast
         showNewHandToast();
+
+        // Clear community cards at start of new hand
+        gui_clear_all_board_cards();
 
         this.gameState = message.gameState;
         this.updateGameUI(message.gameState);
@@ -412,11 +422,23 @@ class PokerWebSocketClient {
     // Update countdown timer display
     this.updateActionTimer(gameStateData.gameState);
 
-    // Update community cards
-    if (gameStateData.gameState?.communityCards) {
+    // Update community cards - clear all first, then show only the ones that should be visible
+    gui_clear_all_board_cards(); // Always start with a clean board
+
+    if (
+      gameStateData.gameState?.communityCards &&
+      gameStateData.gameState.communityCards.length > 0
+    ) {
+      console.log(
+        "Showing",
+        gameStateData.gameState.communityCards.length,
+        "community cards"
+      );
       for (let i = 0; i < gameStateData.gameState.communityCards.length; i++) {
         gui_lay_board_card(i, gameStateData.gameState.communityCards[i]);
       }
+    } else {
+      console.log("No community cards to show - board remains clean");
     }
 
     // Update dealer button
@@ -511,6 +533,7 @@ class PokerWebSocketClient {
   updateActionTimer(gameState) {
     if (!gameState || !gameState.isGameActive) {
       this.clearTimerDisplay();
+      this.stopClientTimer();
       return;
     }
 
@@ -522,8 +545,8 @@ class PokerWebSocketClient {
       const seconds = Math.ceil(gameState.timeRemaining / 1000);
 
       if (seconds > 0) {
-        // Update timer display
-        this.showTimerDisplay(seconds);
+        // Start client-side countdown
+        this.startClientTimer(seconds);
 
         // If it's the current player's turn and time is running low, show warning
         const myPlayer = this.gameState?.players?.find(
@@ -534,10 +557,61 @@ class PokerWebSocketClient {
         }
       } else {
         this.clearTimerDisplay();
+        this.stopClientTimer();
       }
     } else {
       this.clearTimerDisplay();
+      this.stopClientTimer();
     }
+  }
+
+  // Start client-side countdown timer
+  startClientTimer(initialSeconds) {
+    this.stopClientTimer(); // Clear any existing timer
+
+    this.timerStartTime = Date.now();
+    this.timerDuration = initialSeconds;
+
+    // Update display immediately
+    this.showTimerDisplay(initialSeconds);
+
+    // Start interval to update every second
+    this.timerInterval = setInterval(() => {
+      const elapsed = Date.now() - this.timerStartTime;
+      const remainingSeconds = Math.max(
+        0,
+        this.timerDuration - Math.floor(elapsed / 1000)
+      );
+
+      if (remainingSeconds > 0) {
+        this.showTimerDisplay(remainingSeconds);
+
+        // Show warnings for current player
+        const myPlayer = this.gameState?.players?.find(
+          (p) => p.id === this.playerId
+        );
+        if (myPlayer && myPlayer.isCurrentPlayer) {
+          if (remainingSeconds === 10) {
+            this.showTimeWarning(remainingSeconds);
+          } else if (remainingSeconds === 5) {
+            this.showTimeWarning(remainingSeconds);
+          }
+        }
+      } else {
+        this.clearTimerDisplay();
+        this.stopClientTimer();
+      }
+    }, 1000);
+  }
+
+  // Stop client-side timer
+  stopClientTimer() {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+    this.timerStartTime = null;
+    this.timerDuration = null;
   }
 
   // Show timer display in UI
@@ -583,6 +657,7 @@ class PokerWebSocketClient {
     if (timerElement) {
       timerElement.remove();
     }
+    this.stopClientTimer();
   }
 
   // Show time warning for current player

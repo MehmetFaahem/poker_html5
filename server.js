@@ -125,7 +125,7 @@ class GameRoom {
       player.isAllIn = false;
     });
 
-    // Reset game state
+    // Reset game state - ensure no community cards are shown initially
     this.gameState.communityCards = [];
     this.gameState.pot = 0;
     this.gameState.currentBet = 0;
@@ -137,11 +137,18 @@ class GameRoom {
     this.createDeck();
     this.shuffleDeck();
 
-    // Deal hole cards
+    // Deal hole cards only - no community cards yet
     this.dealHoleCards();
 
     // Set blinds
     this.postBlinds();
+
+    // Set the first player to act (after big blind)
+    const activePlayers = [...this.players.values()].filter((p) => p.isActive);
+    if (activePlayers.length >= 2) {
+      const bbIndex = (this.gameState.button + 2) % activePlayers.length;
+      this.gameState.currentBettor = (bbIndex + 1) % activePlayers.length;
+    }
 
     return true;
   }
@@ -183,9 +190,17 @@ class GameRoom {
     const smallBlind = this.roomSettings.minCall;
     const bigBlind = this.roomSettings.minCall * 2;
 
-    // Find small blind and big blind positions
-    const sbIndex = (this.gameState.button + 1) % activePlayers.length;
-    const bbIndex = (this.gameState.button + 2) % activePlayers.length;
+    let sbIndex, bbIndex;
+
+    if (activePlayers.length === 2) {
+      // Heads-up poker: Dealer (button) is small blind, opponent is big blind
+      sbIndex = this.gameState.button; // Dealer = Small Blind
+      bbIndex = (this.gameState.button + 1) % activePlayers.length; // Opponent = Big Blind
+    } else {
+      // Multi-player poker: Standard blind positions
+      sbIndex = (this.gameState.button + 1) % activePlayers.length;
+      bbIndex = (this.gameState.button + 2) % activePlayers.length;
+    }
 
     // Post blinds
     activePlayers[sbIndex].currentBet = Math.min(
@@ -201,14 +216,20 @@ class GameRoom {
     activePlayers[bbIndex].bankroll -= activePlayers[bbIndex].currentBet;
 
     this.gameState.currentBet = bigBlind;
-    this.gameState.currentBettor = (bbIndex + 1) % activePlayers.length;
+
+    if (activePlayers.length === 2) {
+      // Heads-up: Pre-flop betting starts with dealer (small blind)
+      this.gameState.currentBettor = sbIndex;
+    } else {
+      // Multi-player: Pre-flop betting starts after big blind
+      this.gameState.currentBettor = (bbIndex + 1) % activePlayers.length;
+    }
 
     // Initialize player action tracking for preflop betting
     this.gameState.playersActedThisRound = new Map();
 
-    // Start timer for first player to act after big blind
-    const firstPlayerIndex = (bbIndex + 1) % activePlayers.length;
-    const firstPlayer = activePlayers[firstPlayerIndex];
+    // Start timer for first player to act
+    const firstPlayer = activePlayers[this.gameState.currentBettor];
     const firstPlayerId = [...this.players.entries()].find(
       ([id, player]) => player === firstPlayer
     )?.[0];
@@ -248,10 +269,23 @@ class GameRoom {
         break;
 
       case "call":
+        // Only allow call if player needs to match the current bet
+        if (player.currentBet === this.gameState.currentBet) {
+          // Already matched, should be a check, not a call
+          return false;
+        }
+        if (player.currentBet > this.gameState.currentBet) {
+          // Overcalling is not allowed
+          return false;
+        }
         const callAmount = Math.min(
           this.gameState.currentBet - player.currentBet,
           player.bankroll
         );
+        if (callAmount <= 0) {
+          // Nothing to call, invalid action
+          return false;
+        }
         player.currentBet += callAmount;
         player.bankroll -= callAmount;
         if (player.bankroll === 0) player.isAllIn = true;
@@ -368,23 +402,39 @@ class GameRoom {
       (p) => p.isActive && !p.isFolded
     );
 
-    // Check if all players have matched the current bet or are all-in
-    const allBetsMatched = activePlayers.every(
-      (player) =>
-        player.currentBet === this.gameState.currentBet || player.isAllIn
-    );
+    // If only one player remains, betting round is complete
+    if (activePlayers.length <= 1) {
+      return true;
+    }
 
-    // Also check if all active players have acted this round
-    const allPlayersActed = activePlayers.every((player) => {
+    // Check if all players have acted this round AND all bets are matched
+    let allPlayersActed = true;
+    let allBetsMatched = true;
+
+    for (const player of activePlayers) {
       const playerId = [...this.players.entries()].find(
         ([id, p]) => p === player
       )?.[0];
-      return (
-        player.isAllIn || this.gameState.playersActedThisRound.get(playerId)
-      );
-    });
 
-    return allBetsMatched && allPlayersActed;
+      // Skip all-in players - they don't need to act further
+      if (player.isAllIn) {
+        continue;
+      }
+
+      // Check if player has acted this round
+      if (!this.gameState.playersActedThisRound.get(playerId)) {
+        allPlayersActed = false;
+        break;
+      }
+
+      // Check if player's bet matches current bet (or they're all-in)
+      if (player.currentBet < this.gameState.currentBet && !player.isAllIn) {
+        allBetsMatched = false;
+        break;
+      }
+    }
+
+    return allPlayersActed && allBetsMatched;
   }
 
   advanceToNextRound() {
@@ -394,18 +444,22 @@ class GameRoom {
       player.currentBet = 0;
     });
 
+    // Progress to next round and deal appropriate community cards
     switch (this.gameState.round) {
       case "preflop":
-        this.dealFlop();
+        this.dealFlop(); // Deal 3 cards
         this.gameState.round = "flop";
+        console.log("Advanced to flop - dealt 3 community cards");
         break;
       case "flop":
-        this.dealTurn();
+        this.dealTurn(); // Deal 1 card
         this.gameState.round = "turn";
+        console.log("Advanced to turn - dealt 1 community card");
         break;
       case "turn":
-        this.dealRiver();
+        this.dealRiver(); // Deal 1 card
         this.gameState.round = "river";
+        console.log("Advanced to river - dealt 1 community card");
         break;
       case "river":
         const winMessage = this.showdown();
@@ -414,15 +468,29 @@ class GameRoom {
     }
 
     this.gameState.currentBet = 0;
-    this.gameState.currentBettor = this.gameState.button;
 
-    // Reset player action tracking for new betting round
-    this.gameState.playersActedThisRound = new Map();
-
-    // Start timer for first player in new betting round
+    // Set post-flop betting order
     const activePlayers = [...this.players.values()].filter(
       (p) => p.isActive && !p.isFolded
     );
+
+    if (activePlayers.length === 2) {
+      // Heads-up: Post-flop betting starts with opponent (non-dealer), dealer acts last
+      this.gameState.currentBettor =
+        (this.gameState.button + 1) % activePlayers.length;
+    } else {
+      // Multi-player: Post-flop betting starts with first player after dealer
+      this.gameState.currentBettor = this.gameState.button;
+    }
+
+    // Reset player action tracking for new betting round - no one has acted yet
+    this.gameState.playersActedThisRound = new Map();
+    console.log(
+      "Reset player action tracking for new betting round:",
+      this.gameState.round
+    );
+
+    // Start timer for first player in new betting round
     if (activePlayers.length > this.gameState.currentBettor) {
       const currentPlayer = activePlayers[this.gameState.currentBettor];
       const currentPlayerId = [...this.players.entries()].find(
@@ -576,6 +644,15 @@ class GameRoom {
     this.gameState.isGameActive = false;
     this.gameState.button = (this.gameState.button + 1) % this.players.size;
 
+    // Clear community cards and reset round
+    this.gameState.communityCards = [];
+    this.gameState.round = "preflop";
+    this.gameState.pot = 0;
+    this.gameState.currentBet = 0;
+    this.gameState.playersActedThisRound = new Map();
+
+    console.log("Hand ended - cleared community cards and reset game state");
+
     // Remove players with no money
     const playersToRemove = [];
     this.players.forEach((player, playerId) => {
@@ -654,6 +731,12 @@ class GameRoom {
   getGameStateForPlayer(playerId) {
     const player = this.players.get(playerId);
 
+    // Calculate real-time pot including current bets
+    let currentPot = this.gameState.pot;
+    this.players.forEach((p) => {
+      currentPot += p.currentBet;
+    });
+
     // Calculate remaining time for current player
     let timeRemaining = null;
     if (this.gameState.actionStartTime && this.gameState.currentPlayerId) {
@@ -664,6 +747,7 @@ class GameRoom {
     return {
       gameState: {
         ...this.gameState,
+        pot: currentPot, // Use calculated real-time pot
         timeRemaining: timeRemaining,
         currentPlayerId: this.gameState.currentPlayerId,
       },

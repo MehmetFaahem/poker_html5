@@ -239,6 +239,23 @@ function gui_burn_board_card(n, the_card) {
   internal_setCard(cardsdiv, the_card);
 }
 
+// Clear all community cards and burn cards completely
+function gui_clear_all_board_cards() {
+  console.log("Clearing all community cards from display");
+
+  // Clear all 5 community card positions
+  for (var i = 0; i < 5; i++) {
+    gui_lay_board_card(i, "");
+  }
+
+  // Clear all 3 burn card positions
+  for (var i = 0; i < 3; i++) {
+    gui_burn_board_card(i, "");
+  }
+
+  console.log("All community cards cleared - board is now clean");
+}
+
 function gui_write_basic_general(pot_size) {
   var table = document.getElementById("poker_table");
   var pot_div = table.children.pot;
@@ -609,7 +626,7 @@ function setupWinModalButtons() {
     newGameButton.onclick = function () {
       hideWinModal();
 
-      console.log("New Game button clicked - checking game mode...");
+      console.log("New Round button clicked - checking game mode...");
 
       // Check multiple ways to detect multiplayer mode
       const isMultiplayer =
@@ -622,28 +639,29 @@ function setupWinModalButtons() {
       console.log("Multiplayer detected:", isMultiplayer);
 
       if (isMultiplayer) {
-        // Multiplayer mode - restart game with current players
-        console.log("Restarting multiplayer game...");
+        // Multiplayer mode - start new hand with existing players
+        console.log("Starting new hand in multiplayer game...");
         if (typeof startMultiplayerGame === "function") {
           startMultiplayerGame();
         } else {
           console.error("startMultiplayerGame function not found");
         }
       } else {
-        // Check if we have existing players (single player with bots)
+        // Single player mode - start new round with existing setup
         if (typeof players !== "undefined" && players && players.length > 1) {
-          // Single player mode with existing setup - restart with same number of opponents
-          console.log(
-            "Restarting single player game with",
-            players.length - 1,
-            "opponents"
-          );
-          const numOpponents = players.length - 1;
-          if (typeof new_game_continues === "function") {
-            new_game_continues(numOpponents);
+          console.log("Starting new round in single player game...");
+          if (typeof new_round === "function") {
+            new_round(); // Start new round, not new game
+          } else {
+            console.error("new_round function not found");
+            // Fallback to continue with same opponents
+            const numOpponents = players.length - 1;
+            if (typeof new_game_continues === "function") {
+              new_game_continues(numOpponents);
+            }
           }
         } else {
-          // Fallback to regular new game
+          // No existing game setup - start completely new game
           console.log("Starting new game from scratch");
           if (typeof new_game === "function") {
             new_game();
