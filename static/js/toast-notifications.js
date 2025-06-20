@@ -67,23 +67,23 @@ class ToastManager {
 
     switch (type) {
       case "win":
-        icon = "🏆";
+        icon = '<i class="fas fa-trophy"></i>';
         break;
       case "fold":
-        icon = "🃏";
+        icon = '<i class="fas fa-times-circle"></i>';
         break;
       case "call":
-        icon = "✅";
+        icon = '<i class="fas fa-check-circle"></i>';
         break;
       case "check":
-        icon = "✋";
+        icon = '<i class="fas fa-hand-paper"></i>';
         break;
       case "raise":
-        icon = "📈";
+        icon = '<i class="fas fa-arrow-up"></i>';
         break;
       case "action":
       default:
-        icon = "🎯";
+        icon = '<i class="fas fa-play"></i>';
         break;
     }
 
