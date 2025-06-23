@@ -93,6 +93,12 @@ class GameRoom {
       isAllIn: false,
     });
 
+    // If game is not active, deal hole cards to the new player immediately
+    // so they can see their cards while waiting for the game to start
+    if (!this.gameState.isGameActive) {
+      this.dealHoleCardsToPlayer(playerId);
+    }
+
     return true;
   }
 
@@ -118,9 +124,9 @@ class GameRoom {
   startNewHand() {
     if (this.players.size < 2) return false;
 
-    // Reset player states
+    // Reset player states and clear all cards for fresh dealing
     this.players.forEach((player) => {
-      player.cards = [];
+      player.cards = []; // Always clear cards when starting a new hand
       player.currentBet = 0;
       player.isFolded = false;
       player.isAllIn = false;
@@ -134,11 +140,11 @@ class GameRoom {
     this.gameState.isGameActive = true;
     this.gameState.playersActedThisRound = new Map();
 
-    // Create and shuffle deck
+    // Create and shuffle new deck for the hand
     this.createDeck();
     this.shuffleDeck();
 
-    // Deal hole cards only - no community cards yet
+    // Deal hole cards to all players for the new hand
     this.dealHoleCards();
 
     // Set blinds
@@ -182,6 +188,23 @@ class GameRoom {
         }
       }
     }
+  }
+
+  // Deal hole cards only to players who don't already have them
+  dealHoleCardsIfNeeded() {
+    const activePlayers = [...this.players.values()].filter((p) => p.isActive);
+
+    // Deal two cards to each player who doesn't have cards yet
+    activePlayers.forEach((player) => {
+      if (player.cards.length < 2) {
+        // Clear any existing cards and deal fresh ones
+        player.cards = [];
+        if (this.deck.length >= 2) {
+          player.cards.push(this.deck.pop());
+          player.cards.push(this.deck.pop());
+        }
+      }
+    });
   }
 
   postBlinds() {
@@ -797,6 +820,25 @@ class GameRoom {
       })),
       myCards: player ? player.cards : [],
     };
+  }
+
+  // New method to deal hole cards to a specific player
+  dealHoleCardsToPlayer(playerId) {
+    const player = this.players.get(playerId);
+    if (!player) return;
+
+    // Create deck if it doesn't exist
+    if (this.deck.length === 0) {
+      this.createDeck();
+      this.shuffleDeck();
+    }
+
+    // Deal two cards to this player
+    if (this.deck.length >= 2) {
+      player.cards = [];
+      player.cards.push(this.deck.pop());
+      player.cards.push(this.deck.pop());
+    }
   }
 }
 
