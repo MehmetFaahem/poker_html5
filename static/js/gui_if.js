@@ -92,9 +92,9 @@ function internal_setCard(diva, card, folded) {
 
 function internal_clickin_helper(button, button_text, func_on_click) {
   if (button_text === 0) {
-    button.style.visibility = "hidden";
+    button.style.display = "none";
   } else {
-    button.style.visibility = "visible";
+    button.style.display = "block";
     button.innerHTML = button_text;
     button.onclick = function () {
       console.log(
@@ -132,12 +132,21 @@ function gui_set_player_name(name, seat) {
   var seatloc = table.children[current];
   var chipsdiv = internal_get_a_class_named(seatloc, "name-chips");
   var namediv = internal_get_a_class_named(chipsdiv, "player-name");
-  if (name === "") {
-    seatloc.style.visibility = "hidden";
+
+  // Always show the seat, but with different styling for empty vs occupied
+  seatloc.style.visibility = "visible";
+
+  if (name === "" || name === null || name === undefined) {
+    // Show seat label for empty seats
+    namediv.textContent = "Seat " + (seat + 1);
+    seatloc.classList.add("empty-seat");
+    seatloc.classList.remove("occupied-seat");
   } else {
-    seatloc.style.visibility = "visible";
+    // Show player name for occupied seats
+    namediv.textContent = name;
+    seatloc.classList.add("occupied-seat");
+    seatloc.classList.remove("empty-seat");
   }
-  namediv.textContent = name;
 }
 
 function gui_hilite_player(hilite_color, name_color, seat) {
@@ -215,7 +224,31 @@ function gui_lay_board_card(n, the_card) {
   var seatloc = table.children.board;
 
   var cardsdiv = seatloc.children[current];
+
+  // Check if this is a new card being revealed (has content) and wasn't visible before
+  var wasEmpty =
+    cardsdiv.style.opacity === "0" ||
+    cardsdiv.style.opacity === "" ||
+    !cardsdiv.style.backgroundImage ||
+    cardsdiv.style.backgroundImage.includes("cardback.png");
+
   internal_setCard(cardsdiv, the_card);
+
+  // Add flip animation for newly revealed cards (not for clearing cards)
+  if (the_card !== "" && wasEmpty) {
+    cardsdiv.classList.add("boardcard-flip");
+    // Remove animation class after animation completes
+    setTimeout(() => {
+      cardsdiv.classList.remove("boardcard-flip");
+    }, 600);
+
+    // Check for card matches after the card is revealed (delay to let animation start)
+    setTimeout(() => {
+      if (typeof gui_highlight_matching_cards === "function") {
+        gui_highlight_matching_cards();
+      }
+    }, 300);
+  }
 }
 
 function gui_burn_board_card(n, the_card) {
@@ -678,4 +711,303 @@ function setupWinModalButtons() {
       hideWinModal();
     }
   };
+}
+
+// Function to trigger flip animation on all visible community cards when player actions occur
+function gui_animate_community_cards_on_action() {
+  console.log("Triggering community card flip animation");
+  var table = document.getElementById("poker_table");
+  var board = table.children.board;
+
+  if (!board) {
+    console.log("Board element not found");
+    return;
+  }
+
+  var cardIds = ["flop1", "flop2", "flop3", "turn", "river"];
+  var animatedCount = 0;
+
+  cardIds.forEach(function (cardId) {
+    var cardElement = board.children[cardId];
+    if (cardElement) {
+      // Check if card is visible and has actual card content (not cardback or empty)
+      var isVisible =
+        cardElement.style.opacity !== "0" && cardElement.style.opacity !== "";
+      var hasBackground =
+        cardElement.style.backgroundImage &&
+        cardElement.style.backgroundImage !== "";
+      var isNotCardback =
+        !cardElement.style.backgroundImage.includes("cardback.png");
+      var isNotEmpty = !cardElement.style.backgroundImage.includes('url("")');
+
+      var shouldAnimate =
+        isVisible && hasBackground && isNotCardback && isNotEmpty;
+
+      console.log(
+        `Card ${cardId}: visible=${isVisible}, hasBackground=${hasBackground}, notCardback=${isNotCardback}, shouldAnimate=${shouldAnimate}`
+      );
+
+      if (shouldAnimate) {
+        // Remove any existing animation classes first
+        cardElement.classList.remove("boardcard-action-flip");
+
+        // Force a reflow to ensure the class removal takes effect
+        void cardElement.offsetHeight;
+
+        // Add the animation class
+        cardElement.classList.add("boardcard-action-flip");
+        animatedCount++;
+
+        console.log(`Applied flip animation to ${cardId}`);
+
+        // Remove animation class after animation completes (500ms)
+        setTimeout(() => {
+          cardElement.classList.remove("boardcard-action-flip");
+        }, 500);
+      }
+    } else {
+      console.log(`Card element ${cardId} not found`);
+    }
+  });
+
+  console.log(`Animated ${animatedCount} community cards`);
+}
+
+// Debug function to test animation manually
+function gui_test_card_animation() {
+  console.log("Testing card animation manually");
+  gui_animate_community_cards_on_action();
+}
+
+// Function to parse card string and extract rank and suit
+function parseCard(cardStr) {
+  if (!cardStr || cardStr === "" || cardStr === "blinded") {
+    return null;
+  }
+
+  var suit = cardStr.substring(0, 1); // h, d, c, s
+  var rank = parseInt(cardStr.substring(1)); // 2-14
+
+  return {
+    suit: suit,
+    rank: rank,
+    original: cardStr,
+  };
+}
+
+// Function to get current community cards
+function getCurrentCommunityCards() {
+  var table = document.getElementById("poker_table");
+  var board = table.children.board;
+  var communityCards = [];
+  var cardIds = ["flop1", "flop2", "flop3", "turn", "river"];
+
+  cardIds.forEach(function (cardId) {
+    var cardElement = board.children[cardId];
+    if (
+      cardElement &&
+      cardElement.style.opacity !== "0" &&
+      cardElement.style.backgroundImage &&
+      !cardElement.style.backgroundImage.includes("cardback.png")
+    ) {
+      // Extract card info from background image URL
+      var bgImg = cardElement.style.backgroundImage;
+      var match = bgImg.match(
+        /(\d+|ace|king|queen|jack)_of_(clubs|diamonds|hearts|spades)/
+      );
+
+      if (match) {
+        var rank = match[1];
+        var suit = match[2];
+
+        // Convert rank to number
+        var rankNum;
+        if (rank === "ace") rankNum = 14;
+        else if (rank === "king") rankNum = 13;
+        else if (rank === "queen") rankNum = 12;
+        else if (rank === "jack") rankNum = 11;
+        else rankNum = parseInt(rank);
+
+        // Convert suit to single letter
+        var suitLetter = suit.charAt(0);
+
+        communityCards.push({
+          suit: suitLetter,
+          rank: rankNum,
+          element: cardElement,
+          id: cardId,
+        });
+      }
+    }
+  });
+
+  return communityCards;
+}
+
+// Function to get player's hole cards
+function getPlayerCards() {
+  // Access global players array from poker.js
+  if (typeof players === "undefined" || !players[0]) {
+    return { card1: null, card2: null };
+  }
+
+  var card1 = parseCard(players[0].carda);
+  var card2 = parseCard(players[0].cardb);
+
+  return { card1: card1, card2: card2 };
+}
+
+// Function to get player card elements
+function getPlayerCardElements() {
+  var table = document.getElementById("poker_table");
+  var seat0 = table.children["seat0"];
+  var holecards = internal_get_a_class_named(seat0, "holecards");
+  var card1Element = internal_get_a_class_named(holecards, "card holecard1");
+  var card2Element = internal_get_a_class_named(holecards, "card holecard2");
+
+  return { card1Element: card1Element, card2Element: card2Element };
+}
+
+// Function to detect and highlight card matches
+function gui_highlight_matching_cards() {
+  console.log("Checking for card matches");
+
+  // Clear existing highlights first
+  gui_clear_card_highlights();
+
+  var playerCards = getPlayerCards();
+  var communityCards = getCurrentCommunityCards();
+  var playerElements = getPlayerCardElements();
+
+  if (!playerCards.card1 || !playerCards.card2 || communityCards.length === 0) {
+    console.log("No player cards or community cards to check");
+    return;
+  }
+
+  console.log("Player cards:", playerCards);
+  console.log("Community cards:", communityCards);
+
+  var matches = [];
+
+  // Check for rank matches (pairs)
+  communityCards.forEach(function (commCard) {
+    // Check if player card 1 matches community card rank
+    if (playerCards.card1.rank === commCard.rank) {
+      matches.push({
+        type: "pair",
+        playerCard: 1,
+        communityCard: commCard,
+        element: commCard.element,
+      });
+    }
+
+    // Check if player card 2 matches community card rank
+    if (playerCards.card2.rank === commCard.rank) {
+      matches.push({
+        type: "pair",
+        playerCard: 2,
+        communityCard: commCard,
+        element: commCard.element,
+      });
+    }
+  });
+
+  // Check for potential flushes (same suit)
+  var playerSuits = [playerCards.card1.suit, playerCards.card2.suit];
+  var suitCounts = {};
+
+  // Count suits including player cards
+  playerSuits.forEach(function (suit) {
+    suitCounts[suit] = (suitCounts[suit] || 0) + 1;
+  });
+
+  communityCards.forEach(function (commCard) {
+    suitCounts[commCard.suit] = (suitCounts[commCard.suit] || 0) + 1;
+  });
+
+  // Check for flush potential (3+ cards of same suit)
+  Object.keys(suitCounts).forEach(function (suit) {
+    if (suitCounts[suit] >= 3) {
+      // Highlight matching suit cards
+      if (playerCards.card1.suit === suit) {
+        matches.push({
+          type: "flush",
+          playerCard: 1,
+          suit: suit,
+        });
+      }
+      if (playerCards.card2.suit === suit) {
+        matches.push({
+          type: "flush",
+          playerCard: 2,
+          suit: suit,
+        });
+      }
+
+      communityCards.forEach(function (commCard) {
+        if (commCard.suit === suit) {
+          matches.push({
+            type: "flush",
+            communityCard: commCard,
+            element: commCard.element,
+            suit: suit,
+          });
+        }
+      });
+    }
+  });
+
+  // Apply highlights
+  matches.forEach(function (match) {
+    if (match.playerCard === 1 && playerElements.card1Element) {
+      if (match.type === "pair") {
+        playerElements.card1Element.classList.add("card-match-pair");
+      } else if (match.type === "flush") {
+        playerElements.card1Element.classList.add("card-match-flush");
+      }
+    }
+
+    if (match.playerCard === 2 && playerElements.card2Element) {
+      if (match.type === "pair") {
+        playerElements.card2Element.classList.add("card-match-pair");
+      } else if (match.type === "flush") {
+        playerElements.card2Element.classList.add("card-match-flush");
+      }
+    }
+
+    if (match.element) {
+      if (match.type === "pair") {
+        match.element.classList.add("card-match-pair");
+      } else if (match.type === "flush") {
+        match.element.classList.add("card-match-flush");
+      }
+    }
+  });
+
+  console.log(`Found ${matches.length} card matches`);
+
+  // Set timeout to clear highlights after a few seconds
+  setTimeout(function () {
+    gui_clear_card_highlights();
+  }, 5000);
+}
+
+// Function to clear all card highlights
+function gui_clear_card_highlights() {
+  var allCards = document.querySelectorAll(".card, .boardcard");
+  allCards.forEach(function (card) {
+    card.classList.remove(
+      "card-match-highlight",
+      "card-match-persistent",
+      "card-match-pair",
+      "card-match-flush",
+      "card-match-straight"
+    );
+  });
+}
+
+// Test function to manually trigger card highlighting
+function gui_test_card_highlighting() {
+  console.log("Testing card highlighting manually");
+  gui_highlight_matching_cards();
 }

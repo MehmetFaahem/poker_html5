@@ -24,7 +24,7 @@
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
 
   /* Responsive scaling variables */
-  --table-scale: 1;
+  --table-scale: 1.3;
   --table-width: 900px;
   --table-height: 500px;
 }
@@ -217,6 +217,63 @@ body {
   backdrop-filter: blur(5px);
   min-width: 40px;
   text-align: center;
+  /* Hide bet divs by default until game starts */
+  visibility: hidden;
+}
+
+/* Show bet divs when game is active and seat is occupied */
+.game-active .occupied-seat .bet {
+  visibility: visible;
+}
+
+/* Hide start game button by default */
+#start-game-button {
+  visibility: hidden;
+  display: none;
+}
+
+/* Show start game button when enough players joined */
+#start-game-button.show {
+  visibility: visible;
+  display: block;
+}
+
+/* Empty seat styling */
+.empty-seat {
+  opacity: 0.6;
+}
+
+.empty-seat .player-name {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.empty-seat .chips {
+  visibility: hidden;
+}
+
+.empty-seat .card {
+  visibility: hidden;
+}
+
+.empty-seat .bet {
+  visibility: hidden !important; /* Always hide bets for empty seats */
+}
+
+/* Occupied seat styling */
+.occupied-seat {
+  opacity: 1;
+}
+
+.occupied-seat .player-name {
+  color: var(--text-primary);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.occupied-seat .chips {
+  visibility: visible;
 }
 
 #seat0 {
@@ -224,7 +281,7 @@ body {
   top: 380px;
 }
 .seat0-button {
-  left: 280px;
+  left: 200px;
   top: 400px;
 }
 #seat0 .bet {
@@ -386,6 +443,14 @@ body {
   border: 2px solid rgba(255, 255, 255, 0.1);
   box-shadow: var(--shadow-md);
   transition: var(--transition);
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+/* Disable transitions during animation to prevent conflicts */
+.boardcard.boardcard-flip,
+.boardcard.boardcard-action-flip {
+  transition: none !important;
 }
 
 .boardcard:hover {
@@ -393,29 +458,131 @@ body {
   box-shadow: var(--shadow-lg);
 }
 
-#flop1,
-#flop2,
-#flop3 {
-  animation: dealCard 0.6s ease-out forwards;
+/* Disable hover effects during animation */
+.boardcard.boardcard-flip:hover,
+.boardcard.boardcard-action-flip:hover {
+  transform: rotateY(0deg) !important;
+  box-shadow: var(--shadow-md) !important;
 }
 
-#turn {
-  animation: dealCard 0.6s ease-out 0.3s forwards;
+/* Horizontal flip animation for card reveals */
+@keyframes flipCardHorizontal {
+  0% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(90deg);
+  }
+  100% {
+    transform: rotateY(0deg);
+  }
 }
 
-#river {
-  animation: dealCard 0.6s ease-out 0.6s forwards;
+/* Smooth action flip animation */
+@keyframes flipCardAction {
+  0% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(90deg);
+  }
+  100% {
+    transform: rotateY(0deg);
+  }
 }
 
-@keyframes dealCard {
-  from {
+/* Animation for new cards being dealt */
+@keyframes dealCardWithFlip {
+  0% {
     transform: translateY(-100px) rotateY(180deg);
     opacity: 0;
   }
-  to {
+  60% {
+    transform: translateY(0) rotateY(180deg);
+    opacity: 1;
+  }
+  100% {
     transform: translateY(0) rotateY(0deg);
     opacity: 1;
   }
+}
+
+/* Class to trigger flip animation on existing cards */
+.boardcard-flip {
+  animation: flipCardHorizontal 0.6s ease-in-out !important;
+}
+
+/* Class to trigger flip animation on action */
+.boardcard-action-flip {
+  animation: flipCardAction 0.5s ease-in-out !important;
+}
+
+#flop1,
+#flop2,
+#flop3 {
+  animation: dealCardWithFlip 1s ease-out forwards;
+}
+
+#turn {
+  animation: dealCardWithFlip 1s ease-out 1s forwards;
+}
+
+#river {
+  animation: dealCardWithFlip 1s ease-out 1s forwards;
+}
+
+/* Card match highlighting animations */
+@keyframes cardMatchGlow {
+  0% {
+    box-shadow: var(--shadow-md);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 20px 5px rgba(255, 215, 0, 0.8), var(--shadow-lg);
+    transform: scale(1.05);
+  }
+  100% {
+    box-shadow: var(--shadow-md);
+    transform: scale(1);
+  }
+}
+
+@keyframes cardMatchPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 10px 2px rgba(255, 215, 0, 0.6), var(--shadow-md);
+  }
+  50% {
+    box-shadow: 0 0 15px 4px rgba(255, 215, 0, 0.9), var(--shadow-lg);
+  }
+}
+
+/* Classes for matching cards */
+.card-match-highlight {
+  animation: cardMatchGlow 1s ease-in-out !important;
+  border: 2px solid rgba(255, 215, 0, 0.8) !important;
+}
+
+.card-match-persistent {
+  box-shadow: 0 0 12px 3px rgba(255, 215, 0, 0.7), var(--shadow-md) !important;
+  border: 2px solid rgba(255, 215, 0, 0.6) !important;
+  animation: cardMatchPulse 2s infinite ease-in-out !important;
+}
+
+/* Different highlight colors for different match types */
+.card-match-pair {
+  box-shadow: 0 0 12px 3px rgba(255, 215, 0, 0.7), var(--shadow-md) !important;
+  border: 2px solid rgba(255, 215, 0, 0.6) !important;
+}
+
+.card-match-flush {
+  box-shadow: 0 0 12px 3px rgba(0, 191, 255, 0.7), var(--shadow-md) !important;
+  border: 2px solid rgba(0, 191, 255, 0.6) !important;
+}
+
+.card-match-straight {
+  box-shadow: 0 0 12px 3px rgba(50, 205, 50, 0.7), var(--shadow-md) !important;
+  border: 2px solid rgba(50, 205, 50, 0.6) !important;
 }
 
 #burn1,
@@ -432,6 +599,12 @@ body {
   display: flex;
   gap: 15px;
   z-index: 100;
+}
+
+/* Hide action buttons by default */
+#fold-button,
+#call-button {
+  display: none;
 }
 
 .action-button {
@@ -522,6 +695,11 @@ body {
   transition: var(--transition);
   box-shadow: var(--shadow-sm);
   min-width: 120px;
+}
+
+#singleplayer-button {
+  background-color: chocolate !important;
+  color: white !important;
 }
 
 .setup-button:hover {
@@ -1065,6 +1243,12 @@ body[data-theme="dark"] #game-response {
 
   .poker-table {
     margin: 10px auto;
+  }
+}
+
+@media (min-width: 1000px) {
+  .seat0-button {
+    left: 420px;
   }
 }
 

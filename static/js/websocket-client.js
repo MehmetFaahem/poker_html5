@@ -198,6 +198,14 @@ class PokerWebSocketClient {
             this.getPlayerName(message.playerId) ||
             `Player ${message.playerId}`;
           this.showActionToast(playerName, message.action);
+
+          // Animate community cards on any player action (except my own, since that's handled in sendPlayerAction)
+          if (
+            message.playerId !== this.playerId &&
+            typeof gui_animate_community_cards_on_action === "function"
+          ) {
+            gui_animate_community_cards_on_action();
+          }
         }
 
         if (this.onGameUpdate) {
@@ -360,9 +368,19 @@ class PokerWebSocketClient {
       gui_write_basic_general(gameStateData.gameState.pot);
     }
 
-    // Clear all seats first
+    // Control bet visibility based on game state
+    const pokerTable = document.getElementById("poker_table");
+    if (pokerTable) {
+      if (gameStateData.gameState && gameStateData.gameState.isGameActive) {
+        pokerTable.classList.add("game-active");
+      } else {
+        pokerTable.classList.remove("game-active");
+      }
+    }
+
+    // Initialize all seats (show "Seat X" for empty seats)
     for (let i = 0; i < 10; i++) {
-      gui_set_player_name("", i);
+      gui_set_player_name("", i); // This will show "Seat X" for empty seats
       gui_set_bankroll("", i);
       gui_set_bet("", i);
       gui_set_player_cards("", "", i, false);
@@ -409,6 +427,20 @@ class PokerWebSocketClient {
           currentPlayerName = player.name;
         }
       });
+
+      // Control Start Game button visibility based on player count
+      const startGameButton = document.getElementById("start-game-button");
+      if (startGameButton) {
+        const playerCount = gameStateData.players.length;
+        if (
+          playerCount >= 2 &&
+          (!gameStateData.gameState || !gameStateData.gameState.isGameActive)
+        ) {
+          startGameButton.classList.add("show");
+        } else {
+          startGameButton.classList.remove("show");
+        }
+      }
     }
 
     // Show current player toast (only for other players, not yourself)
@@ -422,9 +454,7 @@ class PokerWebSocketClient {
     // Update countdown timer display
     this.updateActionTimer(gameStateData.gameState);
 
-    // Update community cards - clear all first, then show only the ones that should be visible
-    gui_clear_all_board_cards(); // Always start with a clean board
-
+    // Update community cards - only clear when starting a new hand
     if (
       gameStateData.gameState?.communityCards &&
       gameStateData.gameState.communityCards.length > 0
@@ -437,8 +467,13 @@ class PokerWebSocketClient {
       for (let i = 0; i < gameStateData.gameState.communityCards.length; i++) {
         gui_lay_board_card(i, gameStateData.gameState.communityCards[i]);
       }
-    } else {
-      console.log("No community cards to show - board remains clean");
+
+      // Check for card matches after community cards are updated (with delay)
+      setTimeout(() => {
+        if (typeof gui_highlight_matching_cards === "function") {
+          gui_highlight_matching_cards();
+        }
+      }, 500);
     }
 
     // Update dealer button
@@ -745,6 +780,11 @@ class PokerWebSocketClient {
     // Hide action buttons immediately to prevent double-clicking
     gui_hide_fold_call_click();
     gui_hide_bet_range();
+
+    // Animate community cards on player action
+    if (typeof gui_animate_community_cards_on_action === "function") {
+      gui_animate_community_cards_on_action();
+    }
 
     return true;
   }

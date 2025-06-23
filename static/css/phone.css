@@ -80,17 +80,19 @@
     flex-direction: row;
     gap: 8px;
     background: var(--secondary-bg);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(1px);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     padding: 8px;
     box-shadow: var(--shadow-lg);
+    width: max-content;
   }
 
   #multiplayer-options .setup-button {
     padding: 8px 12px;
     font-size: 12px;
     min-width: 80px;
+    max-height: 20px;
   }
 
   /* Game response - more prominent on mobile */
@@ -258,8 +260,9 @@
   }
 
   .boardcard {
-    height: 65px;
-    width: 45px;
+    height: 71px;
+    width: 55px;
+    margin-top: 17px;
   }
 }
 

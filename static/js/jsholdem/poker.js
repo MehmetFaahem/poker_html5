@@ -88,6 +88,24 @@ function init() {
   // Initialize toast notifications
   initToastManager();
 
+  // Initialize bet visibility state (hidden by default until game starts)
+  const pokerTable = document.getElementById("poker_table");
+  if (pokerTable) {
+    pokerTable.classList.remove("game-active");
+  }
+
+  // Initialize all seats to show "Seat X" labels
+  for (var i = 0; i < 10; i++) {
+    gui_set_player_name("", i); // This will show "Seat X" for empty seats
+    gui_set_bankroll("", i);
+    gui_set_bet("", i);
+    gui_set_player_cards("", "", i, false);
+    gui_hilite_player("", "", i);
+  }
+
+  // Ensure action buttons are hidden by default
+  gui_hide_fold_call_click();
+
   // Show poker table and controls
   gui_show_poker_table();
   gui_show_game_response();
@@ -146,10 +164,10 @@ function initialize_game() {
 }
 
 function clear_player_cards(count) {
-  count = count + 1; // Count that human too
-  for (var pl = 0; pl < count; ++pl) {
+  // Clear all 10 seats to show "Seat X" labels for empty seats
+  for (var pl = 0; pl < 10; ++pl) {
     gui_set_player_cards("", "", pl);
-    gui_set_player_name("", pl);
+    gui_set_player_name("", pl); // This will show "Seat X" for empty seats
     gui_set_bet("", pl);
     gui_set_bankroll("", pl);
   }
@@ -213,6 +231,16 @@ function new_round() {
   NUM_ROUNDS++;
   // Clear buttons
   gui_hide_fold_call_click();
+
+  // Enable bet visibility for single player mode during rounds
+  const pokerTable = document.getElementById("poker_table");
+  if (
+    (pokerTable && typeof wsClient === "undefined") ||
+    !wsClient ||
+    !wsClient.isInGame()
+  ) {
+    pokerTable.classList.add("game-active");
+  }
 
   var num_playing = number_of_active_players();
   if (num_playing < 2) {
@@ -997,9 +1025,9 @@ function handle_end_of_round() {
   }
   detail = " (<a href='javascript:alert(\"" + detail + "\")'>details</a>)";
 
-  var quit_text = "<font color=red>Restart</font>";
+  var quit_text = "<font color=white>Restart</font>";
   var quit_func = new_game;
-  var continue_text = "<font color=green>Go on</font>";
+  var continue_text = "<font color=white>Go on</font>";
   var continue_func = new_round;
 
   if (players[0].status == "BUST" && !human_loses) {
@@ -1292,6 +1320,11 @@ function human_call() {
     return;
   }
 
+  // Animate community cards on player action
+  if (typeof gui_animate_community_cards_on_action === "function") {
+    gui_animate_community_cards_on_action();
+  }
+
   current_bettor_index = get_next_player_position(0, 1);
   write_player(0, 0, 0);
   main();
@@ -1316,6 +1349,11 @@ function handle_human_bet(bet_amount) {
       console.log("Player 0 marked as acted (bet/raise)");
     }
 
+    // Animate community cards on player action
+    if (typeof gui_animate_community_cards_on_action === "function") {
+      gui_animate_community_cards_on_action();
+    }
+
     current_bettor_index = get_next_player_position(0, 1);
     write_player(0, 0, 0);
     main();
@@ -1334,6 +1372,11 @@ function human_fold() {
   if (players_acted_this_round) {
     players_acted_this_round[0] = true;
     console.log("Player 0 marked as acted (fold)");
+  }
+
+  // Animate community cards on player action
+  if (typeof gui_animate_community_cards_on_action === "function") {
+    gui_animate_community_cards_on_action();
   }
 
   // Clear the buttons - not able to call
@@ -1384,6 +1427,11 @@ function bet_from_bot(x) {
   if (players_acted_this_round) {
     players_acted_this_round[x] = true;
     console.log("Bot player", x, "marked as acted");
+  }
+
+  // Animate community cards on bot action
+  if (typeof gui_animate_community_cards_on_action === "function") {
+    gui_animate_community_cards_on_action();
   }
 
   write_player(current_bettor_index, 0, 0);
@@ -1728,6 +1776,11 @@ function initializeMultiplayerUI() {
   const startGameBtn = document.getElementById("start-game-button");
   const roomCodeDisplay = document.getElementById("room-code-display");
 
+  // Initially hide the start game button (will be shown when 2+ players join)
+  if (startGameBtn) {
+    startGameBtn.classList.remove("show");
+  }
+
   if (joinRoomBtn) {
     joinRoomBtn.onclick = function () {
       const playerName = prompt(
@@ -1814,11 +1867,11 @@ function initializeMultiplayerUI() {
 
         if (foldButton) {
           foldButton.onclick = null;
-          foldButton.style.visibility = "hidden";
+          foldButton.style.display = "none";
         }
         if (callButton) {
           callButton.onclick = null;
-          callButton.style.visibility = "hidden";
+          callButton.style.display = "none";
         }
       }
 
@@ -1864,6 +1917,12 @@ function new_game_singleplayer() {
   gui_hide_fold_call_click();
   gui_hide_bet_range();
   gui_write_modal_box("");
+
+  // Enable bet visibility for single player mode
+  const pokerTable = document.getElementById("poker_table");
+  if (pokerTable) {
+    pokerTable.classList.add("game-active");
+  }
 
   START_DATE = new Date();
   NUM_ROUNDS = 0;
