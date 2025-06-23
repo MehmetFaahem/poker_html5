@@ -368,13 +368,21 @@ class PokerWebSocketClient {
       gui_write_basic_general(gameStateData.gameState.pot);
     }
 
-    // Control bet visibility based on game state
+    // Control bet visibility and pot display based on game state
     const pokerTable = document.getElementById("poker_table");
     if (pokerTable) {
       if (gameStateData.gameState && gameStateData.gameState.isGameActive) {
         pokerTable.classList.add("game-active");
+        // Show pot when game is active
+        if (typeof gui_show_pot === "function") {
+          gui_show_pot();
+        }
       } else {
         pokerTable.classList.remove("game-active");
+        // Hide pot when game is not active
+        if (typeof gui_hide_pot === "function") {
+          gui_hide_pot();
+        }
       }
     }
 

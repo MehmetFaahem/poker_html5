@@ -294,6 +294,11 @@ function gui_write_basic_general(pot_size) {
   var pot_div = table.children.pot;
   var total_div = pot_div.children["total-pot"];
 
+  // Show pot div when there's a meaningful pot size
+  if (pot_size > 0 && pot_div.style.display === "none") {
+    pot_div.style.display = "block";
+  }
+
   var the_pot = "Total pot: " + pot_size;
   total_div.innerHTML = the_pot;
 }
@@ -302,8 +307,28 @@ function gui_write_basic_general_text(text) {
   var table = document.getElementById("poker_table");
   var pot_div = table.children.pot;
   var total_div = pot_div.children["total-pot"];
+
+  // Show pot div when displaying text
+  if (text && pot_div.style.display === "none") {
+    pot_div.style.display = "block";
+  }
+
   total_div.style.visibility = "visible";
   total_div.innerHTML = text;
+}
+
+// Function to show pot div
+function gui_show_pot() {
+  var table = document.getElementById("poker_table");
+  var pot_div = table.children.pot;
+  pot_div.style.display = "block";
+}
+
+// Function to hide pot div
+function gui_hide_pot() {
+  var table = document.getElementById("poker_table");
+  var pot_div = table.children.pot;
+  pot_div.style.display = "none";
 }
 
 var log_text = [];
@@ -1010,4 +1035,87 @@ function gui_clear_card_highlights() {
 function gui_test_card_highlighting() {
   console.log("Testing card highlighting manually");
   gui_highlight_matching_cards();
+}
+
+// Timer management for single-player mode
+var singlePlayerTimer = null;
+var singlePlayerTimerDisplay = null;
+
+// Function to start visual countdown timer for single-player mode
+function gui_start_action_timer(seconds) {
+  gui_clear_action_timer();
+
+  console.log(`Starting ${seconds} second countdown timer`);
+
+  // Create timer display
+  singlePlayerTimerDisplay = document.createElement("div");
+  singlePlayerTimerDisplay.id = "single-player-timer";
+  singlePlayerTimerDisplay.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 18px;
+    z-index: 1000;
+    font-family: Arial, sans-serif;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+  `;
+  document.body.appendChild(singlePlayerTimerDisplay);
+
+  var remainingSeconds = seconds;
+
+  // Update timer display immediately
+  gui_update_timer_display(remainingSeconds);
+
+  // Start countdown
+  singlePlayerTimer = setInterval(function () {
+    remainingSeconds--;
+    gui_update_timer_display(remainingSeconds);
+
+    if (remainingSeconds <= 0) {
+      gui_clear_action_timer();
+    }
+  }, 1000);
+}
+
+// Function to update timer display
+function gui_update_timer_display(seconds) {
+  if (!singlePlayerTimerDisplay) return;
+
+  singlePlayerTimerDisplay.textContent = `Time remaining: ${seconds}s`;
+
+  // Change color based on remaining time
+  if (seconds <= 3) {
+    singlePlayerTimerDisplay.style.background = "rgba(255, 0, 0, 0.8)";
+    singlePlayerTimerDisplay.style.animation = "pulse 0.5s infinite";
+    singlePlayerTimerDisplay.style.border = "2px solid red";
+  } else if (seconds <= 5) {
+    singlePlayerTimerDisplay.style.background = "rgba(255, 165, 0, 0.8)";
+    singlePlayerTimerDisplay.style.animation = "none";
+    singlePlayerTimerDisplay.style.border = "2px solid orange";
+  } else {
+    singlePlayerTimerDisplay.style.background = "rgba(0, 0, 0, 0.8)";
+    singlePlayerTimerDisplay.style.animation = "none";
+    singlePlayerTimerDisplay.style.border =
+      "2px solid rgba(255, 255, 255, 0.2)";
+  }
+}
+
+// Function to clear action timer
+function gui_clear_action_timer() {
+  if (singlePlayerTimer) {
+    clearInterval(singlePlayerTimer);
+    singlePlayerTimer = null;
+  }
+
+  if (singlePlayerTimerDisplay) {
+    singlePlayerTimerDisplay.remove();
+    singlePlayerTimerDisplay = null;
+  }
 }

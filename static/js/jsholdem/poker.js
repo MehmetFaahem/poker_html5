@@ -11,15 +11,24 @@ var RUN_EM = 0;
 var STARTING_BANKROLL = 500;
 var SMALL_BLIND;
 var BIG_BLIND;
-var BG_HILITE = "gold"; // "#EFEF30",
-var global_speed = 1;
+var BG_HILITE = "#FFE5A2";
+var global_speed = 2;
 var HUMAN_WINS_AGAIN;
 var HUMAN_GOES_ALL_IN;
 var cards = new Array(52);
-var players;
-var board, deck_index, button_index;
-var current_bettor_index, current_bet_amount, current_min_raise;
-var players_acted_this_round; // Track which players have acted in current betting round
+var players = new Array(10);
+var board = new Array(5);
+var deck_index = 0;
+var BUTTON_INDEX = 0;
+var button_index = 0;
+var current_bettor_index = 0;
+var current_bet_amount = 0;
+var current_min_raise = 20;
+var players_acted_this_round = null;
+
+// Timeout management variables
+var playerActionTimeout = null;
+var ACTION_TIMEOUT_DURATION = 10000; // 10 seconds
 
 function leave_pseudo_alert() {
   gui_write_modal_box("");
@@ -79,7 +88,12 @@ function init() {
   gui_initialize_css(); // Load background images
   make_deck();
 
-  // Initialize multiplayer interface
+  // Initialize pot display as hidden
+  if (typeof gui_hide_pot === "function") {
+    gui_hide_pot();
+  }
+
+  // Initialize multiplayer UI first (sets up WebSocket client)
   initializeMultiplayerUI();
 
   // Initialize WebSocket connection immediately
@@ -232,6 +246,11 @@ function new_round() {
   // Clear buttons
   gui_hide_fold_call_click();
 
+  // Show pot div when game starts
+  if (typeof gui_show_pot === "function") {
+    gui_show_pot();
+  }
+
   // Enable bet visibility for single player mode during rounds
   const pokerTable = document.getElementById("poker_table");
   if (
@@ -244,6 +263,10 @@ function new_round() {
 
   var num_playing = number_of_active_players();
   if (num_playing < 2) {
+    // Hide pot when game is not active
+    if (typeof gui_hide_pot === "function") {
+      gui_hide_pot();
+    }
     gui_setup_fold_call_click("Start a new game", 0, new_game, new_game);
     return;
   }
@@ -632,6 +655,9 @@ function main() {
         do_call
       );
 
+      // Start timeout for human player action
+      startPlayerActionTimeout();
+
       var quick_values = new Array(6);
       if (to_call < players[0].bankroll) {
         quick_values[0] = current_min_raise;
@@ -653,38 +679,71 @@ function main() {
         bet_or_raise = "Raise";
       }
 
-      // Set up the range picker for betting
-      var min_bet = to_call;
+      // Set up the range picker for betting - ensure proper minimum raise
+      var min_bet = to_call; // Minimum to just call
+
+      // For raises, calculate minimum raise amount
+      var min_raise_total = current_bet_amount + current_min_raise;
+      var min_raise_additional = Math.max(
+        min_raise_total - players[0].subtotal_bet,
+        to_call
+      );
+
       var max_bet = players[0].bankroll;
-      var initial_bet = Math.min(to_call * 2, max_bet);
+
+      // Initial bet should be at least the minimum raise if player can afford it
+      var initial_bet;
+      if (to_call > 0 && players[0].bankroll >= min_raise_additional) {
+        // Player has money to raise, set initial to minimum raise
+        initial_bet = min_raise_additional;
+        min_bet = min_raise_additional; // Force minimum to be a valid raise
+      } else {
+        // Player can only call or has no money to raise
+        initial_bet = Math.min(to_call, max_bet);
+      }
 
       // Setup the range slider with callback for betting
       gui_setup_bet_range(min_bet, max_bet, initial_bet, function (value) {
         // This callback will be triggered when the slider is moved
         var hi_lite_color = gui_get_theme_mode_highlite_color();
         var bet_amount = parseInt(value);
+        var total_bet_amount = players[0].subtotal_bet + bet_amount;
+
+        var action_type = "Call";
+        if (bet_amount > to_call) {
+          action_type = "Raise to";
+        } else if (to_call === 0) {
+          action_type = "Bet";
+        }
+
         var message =
-          "<tr><td><font size=+2><b>Current raise: " +
+          "<tr><td><font size=+2><b>Current bet: $" +
           current_bet_amount +
           "</b><br> You need <font color=" +
           hi_lite_color +
-          " size=+3>" +
+          " size=+3>$" +
           to_call +
-          "</font> more to call.</font><br>Selected bet: " +
+          "</font> to call.</font><br>" +
+          action_type +
+          ": <font color=" +
+          hi_lite_color +
+          " size=+3>$" +
           bet_amount +
-          "</td></tr>";
+          "</font> (Total: $" +
+          total_bet_amount +
+          ")</td></tr>";
         gui_write_game_response(message);
       });
 
       var hi_lite_color = gui_get_theme_mode_highlite_color();
       var message =
-        "<tr><td><font size=+2><b>Current raise: " +
+        "<tr><td><font size=+2><b>Current bet: $" +
         current_bet_amount +
         "</b><br> You need <font color=" +
         hi_lite_color +
-        " size=+3>" +
+        " size=+3>$" +
         to_call +
-        "</font> more to call.</font></td></tr>";
+        "</font> to call.</font></td></tr>";
       gui_write_game_response(message);
       write_player(0, 1, 0);
       return;
@@ -1204,6 +1263,16 @@ function the_bet_function(player_index, bet_amount) {
     if (new_current_min_raise > current_min_raise) {
       current_min_raise = new_current_min_raise;
     }
+
+    // Reset all other players' acted status since this is a raise
+    if (current_bet_amount > old_current_bet && players_acted_this_round) {
+      for (var i = 0; i < players.length; i++) {
+        if (i !== player_index) {
+          players_acted_this_round[i] = false;
+        }
+      }
+    }
+
     players[player_index].status = "CALL";
   } else if (
     bet_amount + players[player_index].subtotal_bet ==
@@ -1219,43 +1288,73 @@ function the_bet_function(player_index, bet_amount) {
         my_pseudo_alert(
           "Invalid action: You cannot call $0 when there is $" +
             amount_to_call +
-            " to call. You must call $" +
+            " to call. You must call exactly $" +
             amount_to_call +
             ", raise, or fold."
         );
       }
       return 0;
     }
+
+    // Player must call the EXACT amount to match current bet
+    if (amount_to_call > 0 && bet_amount !== amount_to_call) {
+      if (player_index == 0) {
+        my_pseudo_alert(
+          "Invalid call amount: You must call exactly $" +
+            amount_to_call +
+            " to match the current bet of $" +
+            current_bet_amount +
+            ". You cannot call $" +
+            bet_amount +
+            "."
+        );
+      }
+      return 0;
+    }
+
     players[player_index].status = "CALL";
   } else if (
     current_bet_amount >
     players[player_index].subtotal_bet + bet_amount
   ) {
-    // 2 SMALL
-    // COMMENT OUT TO FIND BUGS
+    // BET TOO SMALL - doesn't meet current bet
     if (player_index == 0) {
       my_pseudo_alert(
-        "The current bet to match is " +
+        "The current bet to match is $" +
           current_bet_amount +
-          "\nYou must bet a total of at least " +
+          "\nYou must bet a total of at least $" +
           (current_bet_amount - players[player_index].subtotal_bet) +
-          " or fold."
+          " to call, or raise to at least $" +
+          (current_bet_amount + current_min_raise) +
+          ", or fold."
       );
     }
     return 0;
   } else if (
-    bet_amount + players[player_index].subtotal_bet > current_bet_amount && // RAISE 2 SMALL
+    bet_amount + players[player_index].subtotal_bet > current_bet_amount && // RAISE
     get_pot_size() > 0 &&
     bet_amount + players[player_index].subtotal_bet - current_bet_amount <
       current_min_raise
   ) {
-    // COMMENT OUT TO FIND BUGS
+    // RAISE TOO SMALL - doesn't meet minimum raise
+    var min_total_for_valid_raise = current_bet_amount + current_min_raise;
+    var min_additional_bet_needed =
+      min_total_for_valid_raise - players[player_index].subtotal_bet;
+
     if (player_index == 0) {
-      my_pseudo_alert("Minimum raise is currently " + current_min_raise + ".");
+      my_pseudo_alert(
+        "Minimum raise amount is $" +
+          current_min_raise +
+          ".\nTo raise, you must bet at least $" +
+          min_additional_bet_needed +
+          " (total bet of $" +
+          min_total_for_valid_raise +
+          ")."
+      );
     }
     return 0;
   } else {
-    // RAISE
+    // VALID RAISE
     players[player_index].status = "CALL";
 
     var previous_current_bet = current_bet_amount;
@@ -1267,6 +1366,16 @@ function the_bet_function(player_index, bet_amount) {
         current_min_raise = BIG_BLIND;
       }
     }
+
+    // Reset all other players' acted status since there's a new raise
+    if (players_acted_this_round && current_bet_amount > previous_current_bet) {
+      for (var i = 0; i < players.length; i++) {
+        if (i !== player_index) {
+          players_acted_this_round[i] = false;
+        }
+      }
+      console.log("New raise detected - reset all other players' acted status");
+    }
   }
   players[player_index].subtotal_bet += bet_amount;
   players[player_index].bankroll -= bet_amount;
@@ -1277,6 +1386,9 @@ function the_bet_function(player_index, bet_amount) {
 
 function human_call() {
   console.log("human_call() called in single player mode!");
+
+  // Clear timeout since player acted
+  clearPlayerActionTimeout();
 
   // Clear buttons
   gui_hide_fold_call_click();
@@ -1336,6 +1448,9 @@ function handle_human_bet(bet_amount) {
     bet_amount
   );
 
+  // Clear timeout since player acted
+  clearPlayerActionTimeout();
+
   if (bet_amount < 0 || isNaN(bet_amount)) bet_amount = 0;
   var to_call = current_bet_amount - players[0].subtotal_bet;
   bet_amount += to_call;
@@ -1365,6 +1480,9 @@ function handle_human_bet(bet_amount) {
 
 function human_fold() {
   console.log("human_fold() called in single player mode!");
+
+  // Clear timeout since player acted (or timeout triggered this fold)
+  clearPlayerActionTimeout();
 
   players[0].status = "FOLD";
 
@@ -2078,5 +2196,65 @@ function createRoomWithSettings(playerName, startingChips, minCall, maxCall) {
         }
       }, 2000);
     }
+  }
+}
+
+// Function to start action timeout for human player
+function startPlayerActionTimeout() {
+  clearPlayerActionTimeout(); // Clear any existing timeout
+
+  console.log("Starting 10-second action timeout for human player");
+
+  // Start visual countdown timer
+  if (typeof gui_start_action_timer === "function") {
+    gui_start_action_timer(ACTION_TIMEOUT_DURATION / 1000);
+  }
+
+  playerActionTimeout = setTimeout(function () {
+    console.log("Player action timeout - automatically folding");
+
+    // Show timeout message
+    gui_log_to_history("You timed out and folded automatically");
+
+    // Show timeout toast if available
+    if (typeof showPlayerTimeoutToast === "function") {
+      showPlayerTimeoutToast("You");
+    }
+
+    // Handle timeout with visual feedback
+    handlePlayerTimeout();
+
+    // Automatically fold the player
+    human_fold();
+  }, ACTION_TIMEOUT_DURATION);
+}
+
+// Function to clear action timeout
+function clearPlayerActionTimeout() {
+  if (playerActionTimeout) {
+    clearTimeout(playerActionTimeout);
+    playerActionTimeout = null;
+    console.log("Cleared player action timeout");
+  }
+
+  // Clear visual timer
+  if (typeof gui_clear_action_timer === "function") {
+    gui_clear_action_timer();
+  }
+}
+
+// Function to handle timeout with visual feedback
+function handlePlayerTimeout() {
+  gui_log_to_history("⏰ Time's up! You were automatically folded.");
+
+  // Add visual feedback
+  var gameResponse = document.getElementById("game-response");
+  if (gameResponse) {
+    gameResponse.style.backgroundColor = "rgba(255, 0, 0, 0.2)";
+    gameResponse.style.border = "2px solid red";
+    setTimeout(function () {
+      gameResponse.style.backgroundColor = "";
+      gameResponse.style.border = "";
+    }, 3000);
   }
 }

@@ -51,7 +51,7 @@ class GameRoom {
       minCall: roomSettings.minCall || 5,
       maxCall: roomSettings.maxCall || 50,
       creatorId: roomSettings.creatorId || null,
-      actionTimeout: roomSettings.actionTimeout || 30000, // 30 seconds default
+      actionTimeout: roomSettings.actionTimeout || 10000, // 10 seconds default
     };
     this.players = new Map(); // playerId -> player data
     this.gameState = {
@@ -287,33 +287,62 @@ class GameRoom {
           // Nothing to call, invalid action
           return false;
         }
+        // Player must call the EXACT amount to match current bet
         player.currentBet += callAmount;
         player.bankroll -= callAmount;
         if (player.bankroll === 0) player.isAllIn = true;
         break;
 
       case "raise":
-        // Enforce maximum call limit
+        // Calculate the amount needed to call first
+        const amountToCall = this.gameState.currentBet - player.currentBet;
+        const totalRaiseAmount = action.amount;
+
+        // Validate raise amount - must be higher than current bet
+        if (totalRaiseAmount <= this.gameState.currentBet) {
+          return false; // Raise amount too low
+        }
+
+        // Calculate minimum raise amount
+        const minimumRaise =
+          this.gameState.minRaise || this.roomSettings.minCall * 2;
+        const raiseIncrease = totalRaiseAmount - this.gameState.currentBet;
+
+        // Validate minimum raise (unless player is going all-in)
+        const maxPlayerCanBet = player.bankroll + player.currentBet;
+        if (
+          maxPlayerCanBet > totalRaiseAmount &&
+          raiseIncrease < minimumRaise
+        ) {
+          return false; // Raise too small
+        }
+
+        // Enforce maximum bet limit
         const maxAllowedBet = Math.min(
           this.roomSettings.maxCall,
-          player.bankroll + player.currentBet
+          maxPlayerCanBet
         );
-        const raiseAmount = Math.min(action.amount, maxAllowedBet);
-        const additionalBet = raiseAmount - player.currentBet;
+        const finalRaiseAmount = Math.min(totalRaiseAmount, maxAllowedBet);
 
-        if (raiseAmount <= this.gameState.currentBet) {
-          // If raise amount is not higher than current bet, treat as call
-          const callAmount = Math.min(
-            this.gameState.currentBet - player.currentBet,
-            player.bankroll
-          );
-          player.currentBet += callAmount;
-          player.bankroll -= callAmount;
-        } else {
-          player.currentBet = raiseAmount;
-          player.bankroll -= additionalBet;
-          this.gameState.currentBet = raiseAmount;
+        // Calculate how much player needs to bet
+        const additionalBet = finalRaiseAmount - player.currentBet;
+
+        if (additionalBet > player.bankroll) {
+          return false; // Player doesn't have enough money
         }
+
+        // Update player's bet and bankroll
+        player.currentBet = finalRaiseAmount;
+        player.bankroll -= additionalBet;
+
+        // Update game state
+        this.gameState.currentBet = finalRaiseAmount;
+        this.gameState.minRaise = Math.max(minimumRaise, raiseIncrease);
+
+        // Reset all other players' acted status since there's a new raise
+        // All players (except the raiser) need to act again
+        this.gameState.playersActedThisRound.clear();
+        this.gameState.playersActedThisRound.set(playerId, true);
 
         if (player.bankroll === 0) player.isAllIn = true;
         break;
