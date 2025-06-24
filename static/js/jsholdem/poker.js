@@ -1432,10 +1432,7 @@ function human_call() {
     return;
   }
 
-  // Animate community cards on player action
-  if (typeof gui_animate_community_cards_on_action === "function") {
-    gui_animate_community_cards_on_action();
-  }
+  // Community card animations are now handled when cards are actually revealed, not on every action
 
   current_bettor_index = get_next_player_position(0, 1);
   write_player(0, 0, 0);
@@ -1464,10 +1461,7 @@ function handle_human_bet(bet_amount) {
       console.log("Player 0 marked as acted (bet/raise)");
     }
 
-    // Animate community cards on player action
-    if (typeof gui_animate_community_cards_on_action === "function") {
-      gui_animate_community_cards_on_action();
-    }
+    // Community card animations are now handled when cards are actually revealed, not on every action
 
     current_bettor_index = get_next_player_position(0, 1);
     write_player(0, 0, 0);
@@ -1492,10 +1486,7 @@ function human_fold() {
     console.log("Player 0 marked as acted (fold)");
   }
 
-  // Animate community cards on player action
-  if (typeof gui_animate_community_cards_on_action === "function") {
-    gui_animate_community_cards_on_action();
-  }
+  // Community card animations are now handled when cards are actually revealed, not on every action
 
   // Clear the buttons - not able to call
   gui_hide_fold_call_click();
@@ -1547,10 +1538,7 @@ function bet_from_bot(x) {
     console.log("Bot player", x, "marked as acted");
   }
 
-  // Animate community cards on bot action
-  if (typeof gui_animate_community_cards_on_action === "function") {
-    gui_animate_community_cards_on_action();
-  }
+  // Community card animations are now handled when cards are actually revealed, not on every action
 
   write_player(current_bettor_index, 0, 0);
   current_bettor_index = get_next_player_position(current_bettor_index, 1);

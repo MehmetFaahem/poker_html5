@@ -801,7 +801,7 @@ function gui_animate_community_cards_on_action() {
 // Debug function to test animation manually
 function gui_test_card_animation() {
   console.log("Testing card animation manually");
-  gui_animate_community_cards_on_action();
+  // Animation test function disabled - animations now only trigger on card reveals
 }
 
 // Function to parse card string and extract rank and suit

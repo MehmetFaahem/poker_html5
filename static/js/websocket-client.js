@@ -199,13 +199,7 @@ class PokerWebSocketClient {
             `Player ${message.playerId}`;
           this.showActionToast(playerName, message.action);
 
-          // Animate community cards on any player action (except my own, since that's handled in sendPlayerAction)
-          if (
-            message.playerId !== this.playerId &&
-            typeof gui_animate_community_cards_on_action === "function"
-          ) {
-            gui_animate_community_cards_on_action();
-          }
+          // Community card animations are now handled when cards are actually revealed, not on every action
         }
 
         if (this.onGameUpdate) {
@@ -789,10 +783,7 @@ class PokerWebSocketClient {
     gui_hide_fold_call_click();
     gui_hide_bet_range();
 
-    // Animate community cards on player action
-    if (typeof gui_animate_community_cards_on_action === "function") {
-      gui_animate_community_cards_on_action();
-    }
+    // Community card animations are now handled when cards are actually revealed, not on every action
 
     return true;
   }
