@@ -193,12 +193,14 @@ body {
   left: -6px;
   position: absolute;
   z-index: 2;
+  transform: rotateZ(-30deg);
 }
 
 .holecard2 {
   left: 40px;
   position: absolute;
   z-index: 3;
+  transform: rotateZ(30deg);
 }
 
 .bet {
