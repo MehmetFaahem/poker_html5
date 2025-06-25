@@ -92,7 +92,7 @@
     padding: 8px 12px;
     font-size: 12px;
     min-width: 80px;
-    max-height: 20px;
+    /* max-height: 20px; */
   }
 
   /* Game response - more prominent on mobile */
@@ -125,7 +125,7 @@
   #action-options {
     position: fixed;
     bottom: 0;
-    left: 97vw;
+    left: 80%;
     flex-direction: row;
     gap: 12px;
     z-index: 100;
@@ -147,7 +147,7 @@
   /* Betting range - overlay style on mobile */
   #bet-range-container {
     position: fixed;
-    bottom: 100px;
+    bottom: 0;
     right: 50%;
     transform: translate(50%, 0);
     width: 90%;

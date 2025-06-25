@@ -48,7 +48,7 @@ html {
 body {
   margin: 0 auto;
   max-width: 1600px;
-  background: var(--primary-bg);
+  background: rgb(41, 41, 41);
   color: var(--text-primary);
   position: relative;
   overflow-x: auto;
@@ -1117,6 +1117,10 @@ select option {
   background: var(--warning-color);
 }
 
+.toast.error::before {
+  background: var(--danger-color);
+}
+
 .toast-icon {
   margin-right: 10px;
   font-size: 16px;
@@ -2027,20 +2031,24 @@ input:focus {
 }
 
 .name-input-container h1 {
-  color: var(--text-primary);
+  /* color: var(--text-primary); */
+  color: #20dca4;
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 1rem;
-  background: linear-gradient(135deg, #3b82f6, #10b981);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  /* background: linear-gradient(135deg, #3b82f6, #10b981);
+  background-clip: text; */
+  /* -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent; */
+  font-family: var(--font-sans);
+  letter-spacing: -0.05rem;
 }
 
 .name-input-container p {
   color: var(--text-secondary);
   font-size: 1.1rem;
   margin-bottom: 2rem;
+  font-family: var(--font-sans);
 }
 
 .name-input-form {
@@ -2076,11 +2084,11 @@ input:focus {
   padding: 1rem 2rem;
   font-size: 1.1rem;
   font-weight: 600;
-  background: linear-gradient(
+  /* background: linear-gradient(
     135deg,
     var(--accent-color),
     var(--success-color)
-  );
+  ); */
   color: white;
   border: none;
   border-radius: var(--border-radius);
@@ -2089,6 +2097,7 @@ input:focus {
   font-family: var(--font-sans);
   position: relative;
   overflow: hidden;
+  background-color: #18b586;
 }
 
 .continue-button::before {

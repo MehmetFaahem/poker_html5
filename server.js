@@ -266,14 +266,21 @@ class GameRoom {
 
   processPlayerAction(playerId, action) {
     const player = this.players.get(playerId);
-    if (!player || !this.gameState.isGameActive) return false;
+    if (!player || !this.gameState.isGameActive) {
+      return {
+        success: false,
+        error: "Game is not active or player not found",
+      };
+    }
 
     const activePlayers = [...this.players.values()].filter(
       (p) => p.isActive && !p.isFolded
     );
     const currentPlayerIndex = activePlayers.findIndex((p) => p === player);
 
-    if (currentPlayerIndex !== this.gameState.currentBettor) return false;
+    if (currentPlayerIndex !== this.gameState.currentBettor) {
+      return { success: false, error: "Not your turn to act" };
+    }
 
     // Clear the action timer since player acted
     this.clearActionTimer();
@@ -289,7 +296,10 @@ class GameRoom {
       case "check":
         // Check is only valid when current bet equals player's bet
         if (this.gameState.currentBet !== player.currentBet) {
-          return false; // Invalid check - must call or fold
+          return {
+            success: false,
+            error: "Cannot check - you must call or fold",
+          };
         }
         break;
 
@@ -297,11 +307,17 @@ class GameRoom {
         // Only allow call if player needs to match the current bet
         if (player.currentBet === this.gameState.currentBet) {
           // Already matched, should be a check, not a call
-          return false;
+          return {
+            success: false,
+            error: "Already matched the bet - should check instead",
+          };
         }
         if (player.currentBet > this.gameState.currentBet) {
           // Overcalling is not allowed
-          return false;
+          return {
+            success: false,
+            error: "Cannot call when you've already bet more",
+          };
         }
         const callAmount = Math.min(
           this.gameState.currentBet - player.currentBet,
@@ -309,7 +325,7 @@ class GameRoom {
         );
         if (callAmount <= 0) {
           // Nothing to call, invalid action
-          return false;
+          return { success: false, error: "Nothing to call" };
         }
         // Player must call the EXACT amount to match current bet
         player.currentBet += callAmount;
@@ -322,9 +338,23 @@ class GameRoom {
         const amountToCall = this.gameState.currentBet - player.currentBet;
         const totalRaiseAmount = action.amount;
 
+        console.log(`DEBUG: Raise action - Player: ${player.name}`);
+        console.log(`  Current bet: ${this.gameState.currentBet}`);
+        console.log(`  Player current bet: ${player.currentBet}`);
+        console.log(`  Player bankroll: ${player.bankroll}`);
+        console.log(`  Raise amount: ${totalRaiseAmount}`);
+        console.log(`  Amount to call: ${amountToCall}`);
+        console.log(`  Room maxCall: ${this.roomSettings.maxCall}`);
+
         // Validate raise amount - must be higher than current bet
         if (totalRaiseAmount <= this.gameState.currentBet) {
-          return false; // Raise amount too low
+          console.log(
+            `  REJECTED: Raise amount too low (${totalRaiseAmount} <= ${this.gameState.currentBet})`
+          );
+          return {
+            success: false,
+            error: `Raise amount must be higher than current bet of $${this.gameState.currentBet}`,
+          };
         }
 
         // Calculate minimum raise amount
@@ -332,13 +362,22 @@ class GameRoom {
           this.gameState.minRaise || this.roomSettings.minCall * 2;
         const raiseIncrease = totalRaiseAmount - this.gameState.currentBet;
 
+        console.log(`  Minimum raise: ${minimumRaise}`);
+        console.log(`  Raise increase: ${raiseIncrease}`);
+
         // Validate minimum raise (unless player is going all-in)
         const maxPlayerCanBet = player.bankroll + player.currentBet;
         if (
           maxPlayerCanBet > totalRaiseAmount &&
           raiseIncrease < minimumRaise
         ) {
-          return false; // Raise too small
+          console.log(
+            `  REJECTED: Raise too small (${raiseIncrease} < ${minimumRaise})`
+          );
+          return {
+            success: false,
+            error: `Minimum raise is $${minimumRaise}, but you're only raising by $${raiseIncrease}`,
+          };
         }
 
         // Enforce maximum bet limit
@@ -348,25 +387,69 @@ class GameRoom {
         );
         const finalRaiseAmount = Math.min(totalRaiseAmount, maxAllowedBet);
 
+        console.log(`  Max allowed bet: ${maxAllowedBet}`);
+        console.log(`  Final raise amount: ${finalRaiseAmount}`);
+
+        // If the final raise amount is not higher than current bet, this is not a valid raise
+        if (finalRaiseAmount <= this.gameState.currentBet) {
+          console.log(
+            `  REJECTED: Final raise amount ${finalRaiseAmount} is not higher than current bet ${this.gameState.currentBet}`
+          );
+          return {
+            success: false,
+            error: `Cannot raise - you're already at the maximum bet limit of $${this.gameState.currentBet}`,
+          };
+        }
+
         // Calculate how much player needs to bet
         const additionalBet = finalRaiseAmount - player.currentBet;
 
         if (additionalBet > player.bankroll) {
-          return false; // Player doesn't have enough money
+          console.log(
+            `  REJECTED: Not enough money (${additionalBet} > ${player.bankroll})`
+          );
+          return {
+            success: false,
+            error: `Not enough chips - need $${additionalBet}, but only have $${player.bankroll}`,
+          };
         }
+
+        // Check if this is actually a raise or just a call/check
+        if (
+          additionalBet === 0 &&
+          player.currentBet === this.gameState.currentBet
+        ) {
+          console.log(`  This is actually a check - no additional bet needed`);
+          // This should be treated as a check, not a raise
+          break; // Go to check logic
+        }
+
+        console.log(`  Additional bet needed: ${additionalBet}`);
+        console.log(`  ACCEPTED: Processing raise`);
 
         // Update player's bet and bankroll
         player.currentBet = finalRaiseAmount;
         player.bankroll -= additionalBet;
 
-        // Update game state
-        this.gameState.currentBet = finalRaiseAmount;
-        this.gameState.minRaise = Math.max(minimumRaise, raiseIncrease);
+        // Only reset acted status and update game state if this is a real raise
+        const isActualRaise = finalRaiseAmount > this.gameState.currentBet;
 
-        // Reset all other players' acted status since there's a new raise
-        // All players (except the raiser) need to act again
-        this.gameState.playersActedThisRound.clear();
-        this.gameState.playersActedThisRound.set(playerId, true);
+        if (isActualRaise) {
+          // Update game state
+          this.gameState.currentBet = finalRaiseAmount;
+          this.gameState.minRaise = Math.max(minimumRaise, raiseIncrease);
+
+          // Reset all other players' acted status since there's a new raise
+          // All players (except the raiser) need to act again
+          this.gameState.playersActedThisRound.clear();
+          this.gameState.playersActedThisRound.set(playerId, true);
+        } else {
+          console.log(
+            `  No actual raise occurred - finalRaiseAmount ${finalRaiseAmount} not > currentBet ${this.gameState.currentBet}`
+          );
+          // Just mark this player as having acted
+          this.gameState.playersActedThisRound.set(playerId, true);
+        }
 
         if (player.bankroll === 0) player.isAllIn = true;
         break;
@@ -406,10 +489,18 @@ class GameRoom {
     }
 
     // Move to next player
-    this.gameState.currentBettor = this.getNextActivePlayer(currentPlayerIndex);
+    const nextPlayerIndex = this.getNextActivePlayer(currentPlayerIndex);
+    console.log(
+      `  Moving from player ${currentPlayerIndex} to player ${nextPlayerIndex}`
+    );
+    this.gameState.currentBettor = nextPlayerIndex;
 
     // Check if betting round is complete
-    if (this.isBettingRoundComplete()) {
+    const isBettingComplete = this.isBettingRoundComplete();
+    console.log(`  Is betting round complete? ${isBettingComplete}`);
+
+    if (isBettingComplete) {
+      console.log(`  Advancing to next round`);
       this.clearActionTimer();
       const winMessage = this.advanceToNextRound();
       return { success: true, winMessage };
@@ -419,15 +510,81 @@ class GameRoom {
     const nextActivePlayers = [...this.players.values()].filter(
       (p) => p.isActive && !p.isFolded
     );
-    if (nextActivePlayers.length > this.gameState.currentBettor) {
+
+    console.log(
+      `  Active players count: ${nextActivePlayers.length}, currentBettor: ${this.gameState.currentBettor}`
+    );
+
+    if (nextActivePlayers.length > 0) {
+      // Ensure currentBettor index is valid
+      if (this.gameState.currentBettor >= nextActivePlayers.length) {
+        console.log(
+          `  FIXING: currentBettor index ${this.gameState.currentBettor} >= ${nextActivePlayers.length}, resetting to 0`
+        );
+        this.gameState.currentBettor = 0;
+      }
+
       const nextPlayer = nextActivePlayers[this.gameState.currentBettor];
       const nextPlayerId = [...this.players.entries()].find(
         ([id, player]) => player === nextPlayer
       )?.[0];
 
-      if (nextPlayerId && !nextPlayer.isAllIn) {
-        this.startActionTimer(nextPlayerId);
+      if (nextPlayer && nextPlayerId) {
+        if (!nextPlayer.isAllIn) {
+          console.log(
+            `  Starting timer for player ${nextPlayerId} (${nextPlayer.name}) - currentBettor index: ${this.gameState.currentBettor}`
+          );
+          this.startActionTimer(nextPlayerId);
+        } else {
+          console.log(
+            `  Next player ${nextPlayer.name} is all-in, checking if betting round should complete`
+          );
+          // If next player is all-in, recursively check if we need to advance to another player
+          // or if the betting round should complete
+          const recursiveCheck = () => {
+            if (this.isBettingRoundComplete()) {
+              console.log(
+                `  All players have acted or are all-in - completing betting round`
+              );
+              this.clearActionTimer();
+              const winMessage = this.advanceToNextRound();
+              return { success: true, winMessage };
+            } else {
+              // Move to next player and check again
+              this.gameState.currentBettor = this.getNextActivePlayer(
+                this.gameState.currentBettor
+              );
+              console.log(
+                `  Moving to next player: ${this.gameState.currentBettor}`
+              );
+
+              if (this.gameState.currentBettor < nextActivePlayers.length) {
+                const nextNextPlayer =
+                  nextActivePlayers[this.gameState.currentBettor];
+                if (!nextNextPlayer.isAllIn) {
+                  const nextNextPlayerId = [...this.players.entries()].find(
+                    ([id, player]) => player === nextNextPlayer
+                  )?.[0];
+                  this.startActionTimer(nextNextPlayerId);
+                } else {
+                  // Recursively check again
+                  return recursiveCheck();
+                }
+              }
+            }
+            return { success: true };
+          };
+
+          const result = recursiveCheck();
+          if (result.winMessage) {
+            return result;
+          }
+        }
+      } else {
+        console.log(`  ERROR: Could not find next player or player ID`);
       }
+    } else {
+      console.log(`  No active players remaining`);
     }
 
     return { success: true };
@@ -437,15 +594,27 @@ class GameRoom {
     const activePlayers = [...this.players.values()].filter(
       (p) => p.isActive && !p.isFolded
     );
-    let nextIndex = (currentIndex + 1) % activePlayers.length;
 
-    // Skip players who are all-in or folded
+    // If there's only one active player, they're the current bettor
+    if (activePlayers.length <= 1) {
+      return 0;
+    }
+
+    let nextIndex = (currentIndex + 1) % activePlayers.length;
+    let attempts = 0;
+
+    // Skip players who are all-in (folded players already filtered out)
     while (
-      activePlayers[nextIndex].isAllIn ||
-      activePlayers[nextIndex].isFolded
+      activePlayers[nextIndex].isAllIn &&
+      attempts < activePlayers.length
     ) {
       nextIndex = (nextIndex + 1) % activePlayers.length;
-      if (nextIndex === currentIndex) break; // All players are all-in or folded
+      attempts++;
+    }
+
+    // If all players are all-in, return the original next index
+    if (attempts >= activePlayers.length) {
+      return (currentIndex + 1) % activePlayers.length;
     }
 
     return nextIndex;
@@ -456,8 +625,14 @@ class GameRoom {
       (p) => p.isActive && !p.isFolded
     );
 
+    console.log(`    Checking betting round completion:`);
+    console.log(`      Active players: ${activePlayers.length}`);
+
     // If only one player remains, betting round is complete
     if (activePlayers.length <= 1) {
+      console.log(
+        `      Only ${activePlayers.length} active player(s) - round complete`
+      );
       return true;
     }
 
@@ -470,25 +645,44 @@ class GameRoom {
         ([id, p]) => p === player
       )?.[0];
 
+      console.log(`      Player ${player.name} (${playerId}):`);
+      console.log(`        All-in: ${player.isAllIn}`);
+      console.log(
+        `        Current bet: ${player.currentBet}, Game current bet: ${this.gameState.currentBet}`
+      );
+      console.log(
+        `        Has acted: ${this.gameState.playersActedThisRound.get(
+          playerId
+        )}`
+      );
+
       // Skip all-in players - they don't need to act further
       if (player.isAllIn) {
+        console.log(`        Skipping all-in player`);
         continue;
       }
 
       // Check if player has acted this round
       if (!this.gameState.playersActedThisRound.get(playerId)) {
+        console.log(`        Player has NOT acted this round`);
         allPlayersActed = false;
         break;
       }
 
       // Check if player's bet matches current bet (or they're all-in)
       if (player.currentBet < this.gameState.currentBet && !player.isAllIn) {
+        console.log(`        Player's bet doesn't match current bet`);
         allBetsMatched = false;
         break;
       }
     }
 
-    return allPlayersActed && allBetsMatched;
+    console.log(
+      `      All players acted: ${allPlayersActed}, All bets matched: ${allBetsMatched}`
+    );
+    const result = allPlayersActed && allBetsMatched;
+    console.log(`      Betting round complete: ${result}`);
+    return result;
   }
 
   advanceToNextRound() {
@@ -523,18 +717,24 @@ class GameRoom {
 
     this.gameState.currentBet = 0;
 
-    // Set post-flop betting order
+    // Set post-flop betting order - always start with first player after dealer
     const activePlayers = [...this.players.values()].filter(
       (p) => p.isActive && !p.isFolded
     );
 
-    if (activePlayers.length === 2) {
-      // Heads-up: Post-flop betting starts with opponent (non-dealer), dealer acts last
-      this.gameState.currentBettor =
-        (this.gameState.button + 1) % activePlayers.length;
-    } else {
-      // Multi-player: Post-flop betting starts with first player after dealer
-      this.gameState.currentBettor = this.gameState.button;
+    // Find the first active player after the dealer
+    this.gameState.currentBettor = 0; // Start with first active player after dealer
+
+    // In post-flop rounds, action starts with the player immediately after the dealer
+    // Find the dealer's position in the active players array
+    const dealerPlayer = [...this.players.values()].find(
+      (p) => p.seat === this.gameState.button
+    );
+    if (dealerPlayer) {
+      const dealerIndex = activePlayers.findIndex((p) => p === dealerPlayer);
+      if (dealerIndex !== -1) {
+        this.gameState.currentBettor = (dealerIndex + 1) % activePlayers.length;
+      }
     }
 
     // Reset player action tracking for new betting round - no one has acted yet
@@ -984,6 +1184,35 @@ wss.on("connection", (ws) => {
                 setTimeout(() => {
                   broadcastToRoom(roomId, result.winMessage);
                 }, 1000); // Delay to show the win after the action
+              }
+            } else {
+              // Action was rejected - send error response to the player
+              console.log(
+                `ACTION REJECTED for player ${playerId}: ${
+                  result ? result.error : "Unknown error"
+                }`
+              );
+              const connection = playerConnections.get(playerId);
+              if (connection) {
+                const errorMessage =
+                  result && result.error
+                    ? result.error
+                    : "Invalid action - check bet amount and game state";
+                const rejectionMessage = {
+                  type: "action_rejected",
+                  action: message.action,
+                  error: errorMessage,
+                  gameState: room.getGameStateForPlayer(playerId),
+                };
+                console.log(
+                  `Sending action_rejected message to player ${playerId}:`,
+                  rejectionMessage
+                );
+                connection.ws.send(JSON.stringify(rejectionMessage));
+              } else {
+                console.log(
+                  `No connection found for player ${playerId} to send rejection`
+                );
               }
             }
           }

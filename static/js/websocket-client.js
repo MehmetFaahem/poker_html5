@@ -213,6 +213,11 @@ class PokerWebSocketClient {
         console.log("Game state updated:", message.action);
 
         this.gameState = message.gameState;
+
+        // Clear pending action state since the action was successful
+        this.actionButtonsHidden = false;
+        this.lastActionSent = null;
+
         this.updateGameUI(message.gameState);
 
         // Log the action and show toast
@@ -250,6 +255,42 @@ class PokerWebSocketClient {
       case "game_state":
         this.gameState = message.gameState;
         this.updateGameUI(message.gameState);
+        break;
+
+      case "action_rejected":
+        console.log("✋ ACTION REJECTED RECEIVED:", message);
+        console.log("Error message:", message.error);
+        console.log("Rejected action:", message.action);
+
+        // Show error message to user
+        gui_write_game_response(`Action rejected: ${message.error}`);
+        gui_set_game_response_font_color("red");
+
+        // Update game state and restore action buttons
+        if (message.gameState) {
+          console.log("Updating game state after rejection");
+          this.gameState = message.gameState;
+          this.updateGameUI(message.gameState);
+        }
+
+        // Clear the action sent state so buttons can be shown again
+        console.log("Clearing action state and restoring buttons");
+        this.actionButtonsHidden = false;
+        this.lastActionSent = null;
+
+        // Force update action buttons after rejection
+        console.log("Force updating action buttons after rejection");
+        this.updateActionButtons(message.gameState.gameState);
+
+        // Show specific invalid action toast
+        if (typeof showInvalidActionToast === "function") {
+          const actionType = message.action.type || "action";
+          showInvalidActionToast(actionType, message.error);
+        } else if (typeof showErrorToast === "function") {
+          showErrorToast(message.error);
+        } else {
+          console.log("Toast functions not available");
+        }
         break;
 
       case "player_win":
@@ -550,7 +591,15 @@ class PokerWebSocketClient {
   }
 
   updateActionButtons(gameState) {
+    console.log("🎯 updateActionButtons called", {
+      isGameActive: gameState.isGameActive,
+      actionButtonsHidden: this.actionButtonsHidden,
+      lastActionSent: this.lastActionSent,
+      playerId: this.playerId,
+    });
+
     if (!gameState.isGameActive) {
+      console.log("Game not active - hiding buttons");
       gui_hide_fold_call_click();
       gui_hide_bet_range();
       return;
@@ -558,10 +607,24 @@ class PokerWebSocketClient {
 
     const myPlayer = this.gameState.players.find((p) => p.id === this.playerId);
     if (!myPlayer || !this.isCurrentPlayer(myPlayer, gameState)) {
+      console.log("Not my turn - hiding buttons", {
+        myPlayer: !!myPlayer,
+        isCurrentPlayer: myPlayer
+          ? this.isCurrentPlayer(myPlayer, gameState)
+          : false,
+      });
       gui_hide_fold_call_click();
       gui_hide_bet_range();
       return;
     }
+
+    // Don't show action buttons if we have a pending action (unless it was rejected)
+    if (this.actionButtonsHidden && this.lastActionSent) {
+      console.log("Action pending - not showing buttons");
+      return;
+    }
+
+    console.log("✅ Showing action buttons for current player");
 
     // Calculate call amount
     const callAmount = gameState.currentBet - myPlayer.currentBet;
@@ -580,19 +643,56 @@ class PokerWebSocketClient {
 
     // Setup bet range for raising
     if (myPlayer.bankroll > callAmount) {
-      const minRaise = gameState.currentBet + (gameState.minRaise || 10);
-      let maxRaise = myPlayer.bankroll + myPlayer.currentBet;
+      // Calculate the minimum raise increment (not total bet amount)
+      const minRaiseIncrement = gameState.minRaise || 10;
 
-      // Apply room's maximum call limit
+      // Calculate minimum total bet amount needed to make a valid raise
+      const minTotalBet = gameState.currentBet + minRaiseIncrement;
+
+      // Calculate maximum total bet amount based on room settings and player bankroll
+      let maxTotalBet;
       if (this.gameState && this.gameState.roomSettings) {
-        maxRaise = Math.min(maxRaise, this.gameState.roomSettings.maxCall);
+        // Use the room's maxCall limit as the absolute maximum
+        maxTotalBet = Math.min(
+          this.gameState.roomSettings.maxCall,
+          myPlayer.bankroll + myPlayer.currentBet
+        );
+      } else {
+        // Fallback: allow player to bet up to their total chips
+        maxTotalBet = myPlayer.bankroll + myPlayer.currentBet;
       }
 
-      const currentValue = Math.min(minRaise, maxRaise);
+      // Ensure maxTotalBet is at least the minimum total bet amount
+      maxTotalBet = Math.max(maxTotalBet, minTotalBet);
 
-      gui_setup_bet_range(minRaise, maxRaise, currentValue, (value) => {
-        // Optional: preview bet amount
-      });
+      // For the range picker, show raise increments, not total bet amounts
+      const minRaiseDisplay = minRaiseIncrement;
+      const maxRaiseDisplay = maxTotalBet - gameState.currentBet;
+      const currentRaiseDisplay = minRaiseDisplay;
+
+      console.log(
+        `Setting up bet range: minRaise=${minRaiseDisplay}, maxRaise=${maxRaiseDisplay}, current=${currentRaiseDisplay}`
+      );
+      console.log(
+        `Minimum total bet: ${minTotalBet}, Maximum total bet: ${maxTotalBet}`
+      );
+      console.log(
+        `Player bankroll: ${myPlayer.bankroll}, current bet: ${myPlayer.currentBet}`
+      );
+      console.log(
+        `Game current bet: ${gameState.currentBet}, room maxCall: ${this.gameState?.roomSettings?.maxCall}`
+      );
+
+      gui_setup_bet_range(
+        minRaiseDisplay,
+        maxRaiseDisplay,
+        currentRaiseDisplay,
+        (value) => {
+          // Show preview of total bet amount when user moves slider
+          const totalBetPreview = gameState.currentBet + parseInt(value);
+          // Could add preview display here if needed
+        }
+      );
     } else {
       gui_hide_bet_range();
     }
@@ -816,6 +916,10 @@ class PokerWebSocketClient {
       console.error("Not connected to server");
       return false;
     }
+
+    // Store the current action buttons state before hiding them
+    this.lastActionSent = action;
+    this.actionButtonsHidden = true;
 
     this.send({
       type: "player_action",
@@ -1141,10 +1245,20 @@ function setupMultiplayerFunctions() {
     }
   };
 
-  window.handle_human_bet = function (betAmount) {
-    console.log("Multiplayer handle_human_bet called with amount:", betAmount);
+  window.handle_human_bet = function (raiseIncrement) {
+    console.log(
+      "Multiplayer handle_human_bet called with raise increment:",
+      raiseIncrement
+    );
     if (wsClient && wsClient.isInGame()) {
-      wsClient.sendPlayerAction({ type: "raise", amount: betAmount });
+      // Convert raise increment to total bet amount
+      const gameState = wsClient.getGameState();
+      const totalBetAmount = gameState.currentBet + parseInt(raiseIncrement);
+      console.log(
+        `Converting raise increment ${raiseIncrement} to total bet amount ${totalBetAmount} (current bet: ${gameState.currentBet})`
+      );
+
+      wsClient.sendPlayerAction({ type: "raise", amount: totalBetAmount });
     }
     gui_hide_bet_range();
   };

@@ -90,6 +90,9 @@ class ToastManager {
       case "warning":
         icon = '<i class="fas fa-exclamation-triangle"></i>';
         break;
+      case "error":
+        icon = '<i class="fas fa-times-circle"></i>';
+        break;
       case "action":
       default:
         icon = '<i class="fas fa-play"></i>';
@@ -223,6 +226,28 @@ class ToastManager {
     this.showToast(`⚠️ ${message}`, "warning", 2000);
   }
 
+  showError(message) {
+    this.showToast(`❌ ${message}`, "error", 5000); // Show errors longer
+  }
+
+  showInvalidAction(actionType, reason) {
+    let message = "";
+    switch (actionType.toLowerCase()) {
+      case "raise":
+        message = `🚫 Invalid raise: ${reason}`;
+        break;
+      case "call":
+        message = `🚫 Invalid call: ${reason}`;
+        break;
+      case "bet":
+        message = `🚫 Invalid bet: ${reason}`;
+        break;
+      default:
+        message = `🚫 Invalid ${actionType}: ${reason}`;
+    }
+    this.showToast(message, "error", 5000);
+  }
+
   // Clear all toasts
   clearAll() {
     const toasts = this.container.querySelectorAll(".toast");
@@ -290,4 +315,14 @@ function showPlayerTimeoutToast(playerName) {
 function showTimeWarningToast(message) {
   if (!toastManager) initToastManager();
   toastManager.showTimeWarning(message);
+}
+
+function showErrorToast(message) {
+  if (!toastManager) initToastManager();
+  toastManager.showError(message);
+}
+
+function showInvalidActionToast(actionType, reason) {
+  if (!toastManager) initToastManager();
+  toastManager.showInvalidAction(actionType, reason);
 }
