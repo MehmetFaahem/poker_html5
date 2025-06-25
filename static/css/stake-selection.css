@@ -27,116 +27,111 @@ body {
   margin: 0 auto;
 }
 
-/* Desktop Layout */
+/* Desktop Layout - now used for all devices */
 .desktop-layout {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
   gap: 3rem;
 }
 
-/* Enhanced cards container - now a proper slider */
-.cards-container {
+/* Swiper container styling */
+.stakes-swiper {
+  width: 80%;
+  padding-top: 50px;
+  padding-bottom: 50px;
+  overflow: visible;
+}
+
+.stakes-swiper .swiper-wrapper {
+  transition-timing-function: ease-in-out;
+}
+
+.stakes-swiper .swiper-slide {
+  background-position: center;
+  background-size: cover;
+  width: 380px;
+  height: 480px;
   display: flex;
   align-items: center;
-  gap: 2rem;
-  overflow-x: auto;
-  scroll-behavior: smooth;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* Internet Explorer 10+ */
-  padding: 0 1rem;
-  max-width: calc(100vw - 200px);
-  position: relative;
+  justify-content: center;
 }
 
-.cards-container::-webkit-scrollbar {
-  /* WebKit browsers */
-  display: none;
+/* Swiper pagination styling */
+.stakes-swiper .swiper-pagination {
+  position: static;
+  margin-top: 30px;
 }
 
-/* Add subtle gradient fade on edges */
-/* .cards-container::before,
-.cards-container::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 50px;
-  pointer-events: none;
-  z-index: 2;
-} */
-
-.cards-container::before {
-  left: 0;
-  background: linear-gradient(to right, #0f0f0f, transparent);
+.stakes-swiper .swiper-pagination-bullet {
+  width: 12px;
+  height: 12px;
+  background: #576d67;
+  opacity: 1;
+  margin: 0 8px;
+  transition: all 0.3s ease;
 }
 
-.cards-container::after {
-  right: 0;
-  background: linear-gradient(to left, #0f0f0f, transparent);
+.stakes-swiper .swiper-pagination-bullet-active {
+  background: #20dca4;
+  transform: scale(1.2);
 }
 
-/* Mobile Layout */
+/* Mobile Layout - hidden but kept for compatibility */
 .mobile-layout {
   display: none;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-}
-
-.mobile-card-container {
-  flex: 0 0 auto;
 }
 
 /* Stake Card Styles */
 .stake-card {
   position: relative;
-  flex-shrink: 0;
+  width: 100%;
+  height: 100%;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
 }
 
 .card-container {
   position: relative;
-  width: 380px;
-  height: 480px;
+  width: 100%;
+  height: 100%;
   border-radius: 24px;
   border: 2px solid #576d67;
-  background-color: #0c0c0c;
+  /* background-color: #0c0c0c00; */
   transition: all 0.3s ease;
-  transform: scale(0.9);
 }
 
-.stake-card.highlighted .card-container {
-  border-color: #20dca4;
-  box-shadow: 0 0 218px rgba(53, 255, 194, 0.2);
-  transform: scale(1);
-}
-
-.stake-card {
-  transform: scale(0.7);
+/* Swiper slide states for coverflow effect */
+.swiper-slide .stake-card {
   opacity: 0.4;
+  transform: scale(0.8);
 }
 
-.stake-card.highlighted {
-  transform: scale(1);
+.swiper-slide-active .stake-card,
+.swiper-slide-duplicate-active .stake-card {
   opacity: 1;
-}
-
-.stake-card.adjacent {
-  transform: scale(0.85);
-  opacity: 0.7;
-}
-
-.stake-card.far {
-  transform: scale(0.65);
-  opacity: 0.3;
-}
-
-/* Add hover effect for non-highlighted cards */
-.stake-card:not(.highlighted):hover .card-container {
-  border-color: #20dca4;
   transform: scale(1);
-  box-shadow: 0 0 60px rgba(53, 255, 194, 0.1);
+}
+
+.swiper-slide-active .card-container,
+.swiper-slide-duplicate-active .card-container {
+  border-color: #20dca4;
+  /* box-shadow: 0 0 218px rgba(53, 255, 194, 0.2); */
+}
+
+.swiper-slide-next .stake-card,
+.swiper-slide-prev .stake-card {
+  opacity: 0.7;
+  transform: scale(0.85);
+}
+
+/* Add hover effect */
+.stake-card:hover .card-container {
+  border-color: #20dca4;
+  /* box-shadow: 0 0 60px rgba(53, 255, 194, 0.1); */
 }
 
 .card-top {
@@ -175,7 +170,7 @@ body {
   height: 249px;
   border-radius: 20px;
   background: linear-gradient(180deg, #117658 0%, #20dca4 100%);
-  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+  /* box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25); */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -248,12 +243,9 @@ body {
   height: 32px;
 }
 
-/* Mobile Dots */
+/* Mobile Dots - hidden but kept for compatibility */
 .mobile-dots {
   display: none;
-  justify-content: center;
-  margin-top: 1.5rem;
-  gap: 0.5rem;
 }
 
 .dot {
@@ -278,18 +270,13 @@ body {
 
 /* Responsive Design */
 @media (max-width: 1200px) {
-  .cards-container {
-    gap: 1.5rem;
-    max-width: calc(100vw - 160px);
+  .stakes-swiper .swiper-slide {
+    width: 304px;
+    height: 384px;
   }
 
   .desktop-layout {
-    gap: 2rem;
-  }
-
-  .card-container {
-    width: 304px;
-    height: 384px;
+    padding: 0 1rem;
   }
 
   .card-top {
@@ -325,20 +312,16 @@ body {
 
 @media (max-width: 768px) {
   .desktop-layout {
-    display: none;
+    gap: 1rem;
   }
 
-  .mobile-layout {
-    display: flex;
+  .stakes-swiper {
+    width: 90%;
   }
 
-  .mobile-dots {
-    display: flex;
-  }
-
-  .card-container {
+  .stakes-swiper .swiper-slide {
     width: 280px;
-    height: 320px;
+    height: 380px;
   }
 
   .card-top {
@@ -346,18 +329,18 @@ body {
   }
 
   .stakes-label {
-    font-size: 14px;
+    font-size: 16px;
     letter-spacing: -0.8px;
     margin-bottom: 6px;
   }
 
   .stakes-amount {
-    font-size: 28px;
+    font-size: 32px;
     letter-spacing: -1.8px;
   }
 
   .card-bottom {
-    height: 160px;
+    height: 180px;
     gap: 8px;
   }
 
@@ -368,23 +351,37 @@ body {
   }
 
   .buy-in-amount {
-    font-size: 18px;
+    font-size: 20px;
     letter-spacing: -1px;
   }
 
   .container {
     padding: 1rem;
   }
+
+  .arrow-button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .arrow-button svg {
+    width: 32px;
+    height: 32px;
+  }
 }
 
 @media (max-width: 480px) {
-  .mobile-layout {
+  .desktop-layout {
     gap: 0.5rem;
   }
 
-  .card-container {
-    width: 260px;
-    height: 300px;
+  .stakes-swiper {
+    width: 95%;
+  }
+
+  .stakes-swiper .swiper-slide {
+    width: 240px;
+    height: 320px;
   }
 
   .stakes-amount {
@@ -399,13 +396,14 @@ body {
     font-size: 16px;
   }
 
-  .mobile-dots {
-    gap: 0.3rem;
+  .arrow-button {
+    width: 40px;
+    height: 40px;
   }
 
-  .dot {
-    width: 6px;
-    height: 6px;
+  .arrow-button svg {
+    width: 24px;
+    height: 24px;
   }
 }
 
@@ -413,8 +411,8 @@ body {
 .arrow-button:focus,
 .dot:focus,
 .stake-card:focus {
-  outline: 2px solid #20dca4;
-  outline-offset: 2px;
+  outline: none;
+  outline-offset: 0px;
 }
 
 /* Smooth transitions */
@@ -455,8 +453,6 @@ body {
 /* Mobile Selection Button */
 .mobile-selection {
   display: none;
-  justify-content: center;
-  margin-top: 1.5rem;
 }
 
 .mobile-select-btn {
@@ -482,7 +478,7 @@ body {
   transform: translateY(0);
 }
 
-/* Responsive Design */
+/* Responsive Design for instructions */
 @media (max-width: 1200px) {
   .selection-instructions p {
     font-size: 14px;
@@ -495,22 +491,20 @@ body {
 
 @media (max-width: 768px) {
   .selection-instructions {
-    display: none;
+    margin-top: 1rem;
   }
 
-  .mobile-selection {
-    display: flex;
+  .selection-instructions p {
+    font-size: 12px;
   }
 
-  .mobile-select-btn {
-    padding: 14px 28px;
-    font-size: 14px;
+  .keyboard-hint {
+    font-size: 10px !important;
   }
 }
 
 @media (max-width: 480px) {
-  .mobile-select-btn {
-    padding: 12px 24px;
-    font-size: 13px;
+  .selection-instructions {
+    margin-top: 0.5rem;
   }
 }

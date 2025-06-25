@@ -1,4 +1,4 @@
-// Poker Stakes Interface JavaScript
+// Poker Stakes Interface JavaScript with Swiper.js
 
 // Data for the stakes cards (now 6 cards total)
 const stakesData = [
@@ -49,6 +49,7 @@ const stakesData = [
 // Current active index (start with middle card)
 let currentIndex = 2;
 let playerName = "";
+let swiper; // Swiper instance
 
 // Store player name from the previous screen
 function setPlayerName(name) {
@@ -73,90 +74,141 @@ function getPlayerName() {
   }
 }
 
-// Navigation functions
+// Initialize Swiper
+function initializeSwiper() {
+  swiper = new Swiper(".stakes-swiper", {
+    effect: "",
+    grabCursor: true,
+    centeredSlides: true,
+    slidesPerView: "auto",
+
+    initialSlide: currentIndex,
+    spaceBetween: 10, // Increase gap between slides
+    coverflowEffect: {
+      rotate: 0,
+      stretch: 0,
+      depth: 50,
+      modifier: 1,
+    },
+    pagination: {
+      el: ".swiper-pagination",
+      clickable: true,
+    },
+    keyboard: {
+      enabled: true,
+      onlyInViewport: true,
+    },
+    loop: true,
+    loopedSlides: stakesData.length,
+    on: {
+      slideChange: function () {
+        currentIndex = this.realIndex;
+        announceCardChange();
+      },
+      click: function (swiper, event) {
+        // Handle double-click on slides
+        const clickedSlide = event.target.closest(".swiper-slide");
+        if (clickedSlide && this.clickedIndex === this.activeIndex) {
+          selectStakeAndCreateRoom(this.realIndex);
+        }
+      },
+    },
+  });
+
+  // Add double-click handler for card selection
+  const slides = document.querySelectorAll(".swiper-slide");
+  slides.forEach((slide, index) => {
+    let clickCount = 0;
+    slide.addEventListener("click", () => {
+      clickCount++;
+      setTimeout(() => {
+        if (clickCount === 2) {
+          // Get the real index accounting for loop
+          const realIndex = swiper.realIndex;
+          selectStakeAndCreateRoom(realIndex);
+        }
+        clickCount = 0;
+      }, 300);
+    });
+  });
+
+  // Connect custom arrow buttons to Swiper
+  const leftArrowDesktop = document.getElementById("leftArrowDesktop");
+  const rightArrowDesktop = document.getElementById("rightArrowDesktop");
+  const leftArrowMobile = document.getElementById("leftArrowMobile");
+  const rightArrowMobile = document.getElementById("rightArrowMobile");
+
+  if (leftArrowDesktop) {
+    leftArrowDesktop.addEventListener("click", () => {
+      swiper.slidePrev();
+    });
+  }
+
+  if (rightArrowDesktop) {
+    rightArrowDesktop.addEventListener("click", () => {
+      swiper.slideNext();
+    });
+  }
+
+  if (leftArrowMobile) {
+    leftArrowMobile.addEventListener("click", () => {
+      swiper.slidePrev();
+    });
+  }
+
+  if (rightArrowMobile) {
+    rightArrowMobile.addEventListener("click", () => {
+      swiper.slideNext();
+    });
+  }
+}
+
+// Navigation functions for mobile
 function goToPrevious() {
-  currentIndex = currentIndex > 0 ? currentIndex - 1 : stakesData.length - 1;
-  updateMobileCard();
-  updateDots();
-  updateDesktopCards();
+  if (swiper) {
+    swiper.slidePrev();
+  }
 }
 
 function goToNext() {
-  currentIndex = currentIndex < stakesData.length - 1 ? currentIndex + 1 : 0;
-  updateMobileCard();
-  updateDots();
-  updateDesktopCards();
+  if (swiper) {
+    swiper.slideNext();
+  }
 }
 
 function goToCard(index) {
-  currentIndex = index;
-  updateMobileCard();
-  updateDots();
-  updateDesktopCards();
-}
-
-// Update mobile card content
-function updateMobileCard() {
-  const currentCard = stakesData[currentIndex];
-  const mobileStakes = document.getElementById("mobileStakes");
-  const mobileBuyIn = document.getElementById("mobileBuyIn");
-
-  // Add fade effect
-  const mobileCard = document.getElementById("mobileCard");
-  if (mobileCard) {
-    mobileCard.style.opacity = "0.7";
-
-    setTimeout(() => {
-      if (mobileStakes) mobileStakes.textContent = currentCard.stakes;
-      if (mobileBuyIn) mobileBuyIn.textContent = currentCard.buyIn;
-      mobileCard.style.opacity = "1";
-    }, 150);
+  if (swiper) {
+    swiper.slideToLoop(index);
   }
 }
 
-// Update dots indicator
-function updateDots() {
-  const dots = document.querySelectorAll("#stake-selection-screen .dot");
-  dots.forEach((dot, index) => {
-    if (index === currentIndex) {
-      dot.classList.add("active");
-    } else {
-      dot.classList.remove("active");
-    }
-  });
-}
-
-// Update desktop cards highlighting and scroll position
-function updateDesktopCards() {
-  const desktopCards = document.querySelectorAll(
-    "#stake-selection-screen .desktop-layout .stake-card"
-  );
-  desktopCards.forEach((card, index) => {
-    if (index === currentIndex) {
-      card.classList.add("highlighted");
-    } else {
-      card.classList.remove("highlighted");
-    }
-  });
-
-  // Scroll the cards container to show the current card
-  const cardsContainer = document.querySelector(
-    "#stake-selection-screen .cards-container"
-  );
-  const currentCard = desktopCards[currentIndex];
-  if (currentCard && cardsContainer) {
-    const cardRect = currentCard.getBoundingClientRect();
-    const containerRect = cardsContainer.getBoundingClientRect();
-    const scrollLeft =
-      currentCard.offsetLeft -
-      cardsContainer.offsetLeft -
-      containerRect.width / 2 +
-      cardRect.width / 2;
-    cardsContainer.scrollTo({
-      left: scrollLeft,
-      behavior: "smooth",
-    });
+// Check if room creation was successful by looking at the DOM
+function checkRoomCreationSuccess() {
+  // Check if the room code is displayed (indicating successful room creation)
+  const roomCodeDisplay = document.getElementById("room-code-display");
+  if (roomCodeDisplay && roomCodeDisplay.style.visibility !== "hidden") {
+    console.log("Room code is displayed, hiding loading state");
+    hideLoadingState();
+    return true;
   }
+
+  // Check if game elements are visible (indicating successful room creation)
+  const pokerTable = document.getElementById("poker_table");
+  if (pokerTable && window.getComputedStyle(pokerTable).display !== "none") {
+    console.log("Poker table is visible, hiding loading state");
+    hideLoadingState();
+    return true;
+  }
+
+  // Check if stake selection screen is hidden (indicating navigation away)
+  const stakeScreen = document.getElementById("stake-selection-screen");
+  if (stakeScreen && stakeScreen.style.display === "none") {
+    console.log("Stake selection screen is hidden, hiding loading state");
+    hideLoadingState();
+    return true;
+  }
+
+  return false;
 }
 
 // Handle stake selection and room creation
@@ -174,6 +226,19 @@ function selectStakeAndCreateRoom(stakeIndex) {
 
   // Show loading state
   showLoadingState();
+
+  // Set up periodic checks for room creation success
+  const checkInterval = setInterval(() => {
+    if (checkRoomCreationSuccess()) {
+      clearInterval(checkInterval);
+    }
+  }, 1000);
+
+  // Clear the interval after 15 seconds as a failsafe
+  setTimeout(() => {
+    clearInterval(checkInterval);
+    hideLoadingState();
+  }, 15000);
 
   // Create room with the selected stake settings
   if (typeof createRoomWithStakeSettings === "function") {
@@ -206,116 +271,143 @@ function selectStakeAndCreateRoom(stakeIndex) {
               stakeLevel: selectedStake.stakes,
             });
           } else {
-            setTimeout(checkConnection, 500);
+            setTimeout(checkConnection, 100);
           }
         };
-
-        setTimeout(checkConnection, 1000);
+        checkConnection();
       } else {
+        console.error("WebSocket initialization function not found");
         hideLoadingState();
-        alert("Unable to create room. Please refresh the page and try again.");
       }
     }
   }
 }
 
-// Function to hide stake selection screen (called from poker.js)
-function hideStakeSelectionScreen() {
-  if (typeof window.hideStakeSelectionScreen === "function") {
-    window.hideStakeSelectionScreen();
-  } else {
-    const stakeSelectionScreen = document.getElementById(
-      "stake-selection-screen"
-    );
-    if (stakeSelectionScreen) {
-      stakeSelectionScreen.style.display = "none";
-    }
+// Show/hide stake selection screen
+function showStakeSelectionScreen() {
+  const screen = document.getElementById("stake-selection-screen");
+  if (screen) {
+    screen.style.display = "block";
+    document.body.style.overflow = "hidden";
   }
 }
 
-// Show loading state
+function hideStakeSelectionScreen() {
+  const screen = document.getElementById("stake-selection-screen");
+  if (screen) {
+    screen.style.display = "none";
+    document.body.style.overflow = "auto";
+
+    // Make sure loading overlay is hidden when leaving the screen
+    hideLoadingState();
+  }
+}
+
+// Loading state management
 function showLoadingState() {
-  // Add loading overlay to the stake selection
-  const container = document.querySelector(
-    "#stake-selection-screen .container"
-  );
-  if (container) {
-    const loadingOverlay = document.createElement("div");
-    loadingOverlay.id = "stake-loading-overlay";
-    loadingOverlay.innerHTML = `
-      <div class="loading-content">
-        <div class="loading-spinner"></div>
-        <p>Creating room...</p>
-      </div>
-    `;
-    loadingOverlay.style.cssText = `
+  // Create loading overlay
+  const existingOverlay = document.querySelector(".loading-overlay");
+  if (existingOverlay) {
+    existingOverlay.remove();
+  }
+
+  const loadingOverlay = document.createElement("div");
+  loadingOverlay.className = "loading-overlay";
+  loadingOverlay.innerHTML = `
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <h2>Creating Room...</h2>
+      <p>Setting up your poker room with the selected stakes</p>
+    </div>
+  `;
+
+  // Add loading styles
+  const style = document.createElement("style");
+  style.textContent = `
+    .loading-overlay {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(15, 15, 15, 0.9);
+      background: rgba(15, 15, 15, 0.95);
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 1001;
-      backdrop-filter: blur(5px);
-    `;
-
-    const loadingContent = loadingOverlay.querySelector(".loading-content");
-    loadingContent.style.cssText = `
+      z-index: 9999;
+      backdrop-filter: blur(10px);
+    }
+    
+    .loading-content {
       text-align: center;
       color: white;
-    `;
-
-    const spinner = loadingOverlay.querySelector(".loading-spinner");
-    spinner.style.cssText = `
-      width: 40px;
-      height: 40px;
-      border: 3px solid rgba(32, 220, 164, 0.3);
-      border-top: 3px solid #20dca4;
+    }
+    
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid #576d67;
+      border-top: 4px solid #20dca4;
       border-radius: 50%;
       animation: spin 1s linear infinite;
-      margin: 0 auto 1rem;
-    `;
-
-    // Add spin animation if not already added
-    if (!document.getElementById("stake-spinner-style")) {
-      const style = document.createElement("style");
-      style.id = "stake-spinner-style";
-      style.textContent = `
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `;
-      document.head.appendChild(style);
+      margin: 0 auto 1rem auto;
     }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .loading-content h2 {
+      margin: 0 0 0.5rem 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    
+    .loading-content p {
+      margin: 0;
+      font-size: 16px;
+      opacity: 0.8;
+    }
+  `;
 
-    container.appendChild(loadingOverlay);
-  }
+  document.head.appendChild(style);
+  document.body.appendChild(loadingOverlay);
+
+  // Disable all interactive elements
+  const interactiveElements = document.querySelectorAll("button, .stake-card");
+  interactiveElements.forEach((element) => {
+    element.style.pointerEvents = "none";
+    element.style.opacity = "0.5";
+  });
+
+  // Dispatch event to trigger the failsafe timer
+  window.dispatchEvent(new Event("stake_selection_loading"));
 }
 
-// Hide loading state
 function hideLoadingState() {
-  const loadingOverlay = document.getElementById("stake-loading-overlay");
+  const loadingOverlay = document.querySelector(".loading-overlay");
   if (loadingOverlay) {
     loadingOverlay.remove();
   }
+
+  // Re-enable interactive elements
+  const interactiveElements = document.querySelectorAll("button, .stake-card");
+  interactiveElements.forEach((element) => {
+    element.style.pointerEvents = "auto";
+    element.style.opacity = "1";
+  });
 }
 
-// Event listeners are now set up in initializeStakeSelection() function
-
-// Keyboard navigation (only set up once globally)
-let keyboardListenerAdded = false;
-
+// Keyboard navigation
 function setupKeyboardNavigation() {
-  if (keyboardListenerAdded) return;
-
   document.addEventListener("keydown", (event) => {
-    // Only handle keys if stake selection screen is visible
-    const stakeScreen = document.getElementById("stake-selection-screen");
-    if (!stakeScreen || stakeScreen.style.display === "none") return;
+    if (
+      event.target.tagName === "INPUT" ||
+      event.target.tagName === "TEXTAREA"
+    ) {
+      return;
+    }
 
     switch (event.key) {
       case "ArrowLeft":
@@ -326,166 +418,73 @@ function setupKeyboardNavigation() {
         event.preventDefault();
         goToNext();
         break;
-      case "1":
-        event.preventDefault();
-        goToCard(0);
-        break;
-      case "2":
-        event.preventDefault();
-        goToCard(1);
-        break;
-      case "3":
-        event.preventDefault();
-        goToCard(2);
-        break;
-      case "4":
-        event.preventDefault();
-        goToCard(3);
-        break;
-      case "5":
-        event.preventDefault();
-        goToCard(4);
-        break;
-      case "6":
-        event.preventDefault();
-        goToCard(5);
-        break;
       case "Enter":
+      case " ":
         event.preventDefault();
         selectStakeAndCreateRoom(currentIndex);
         break;
     }
   });
-
-  keyboardListenerAdded = true;
 }
 
-// Touch/Swipe support for mobile
-let touchStartX = 0;
-let touchEndX = 0;
-
-function setupMobileSwipe() {
-  const mobileCardContainer = document.querySelector(
-    "#stake-selection-screen .mobile-card-container"
-  );
-
-  if (mobileCardContainer) {
-    function handleSwipe() {
-      const swipeThreshold = 50;
-      const swipeDistance = touchEndX - touchStartX;
-
-      if (Math.abs(swipeDistance) > swipeThreshold) {
-        if (swipeDistance > 0) {
-          // Swipe right - go to previous
-          goToPrevious();
-        } else {
-          // Swipe left - go to next
-          goToNext();
-        }
-      }
-    }
-
-    mobileCardContainer.addEventListener("touchstart", (event) => {
-      touchStartX = event.changedTouches[0].screenX;
-    });
-
-    mobileCardContainer.addEventListener("touchend", (event) => {
-      touchEndX = event.changedTouches[0].screenX;
-      handleSwipe();
-    });
-  }
-}
-
-// Add click handlers for desktop cards to make them selectable
-function addDesktopCardClickHandlers() {
-  const desktopCards = document.querySelectorAll(
-    "#stake-selection-screen .desktop-layout .stake-card"
-  );
-  desktopCards.forEach((card, index) => {
-    card.addEventListener("click", () => {
-      goToCard(index);
-      // Double click to select
-      card.addEventListener("dblclick", () => selectStakeAndCreateRoom(index));
-    });
-    card.style.cursor = "pointer";
-
-    // Add visual feedback for selection
-    card.title = `Click to view, double-click to select ${stakesData[index].stakes}`;
+// Mobile touch interactions
+function setupMobileInteractions() {
+  // Mobile dots navigation
+  const dots = document.querySelectorAll(".dot");
+  dots.forEach((dot, index) => {
+    dot.addEventListener("click", () => goToCard(index));
   });
-}
 
-// Add click handlers for mobile card selection
-function addMobileCardClickHandler() {
-  const mobileCard = document.getElementById("mobileCard");
-  const mobileSelectBtn = document.getElementById("mobile-select-button");
-
-  if (mobileCard) {
-    // Remove the direct click handler for mobile card to avoid confusion
-    mobileCard.style.cursor = "default";
-    mobileCard.title = `Current selection: ${stakesData[currentIndex].stakes}`;
-  }
-
-  if (mobileSelectBtn) {
-    mobileSelectBtn.addEventListener("click", () =>
-      selectStakeAndCreateRoom(currentIndex)
-    );
+  // Mobile select button
+  const mobileSelectButton = document.getElementById("mobile-select-button");
+  if (mobileSelectButton) {
+    mobileSelectButton.addEventListener("click", () => {
+      selectStakeAndCreateRoom(currentIndex);
+    });
 
     // Update button text based on current selection
     const updateButtonText = () => {
       const currentStake = stakesData[currentIndex];
-      mobileSelectBtn.textContent = `Select ${currentStake.stakes} & Create Room`;
+      mobileSelectButton.innerHTML = `
+        Select ${currentStake.stakes} Stakes<br>
+        <small>& Create Room</small>
+      `;
     };
 
     updateButtonText();
 
     // Update button text when card changes
-    const originalUpdateMobileCard = updateMobileCard;
-    updateMobileCard = function () {
-      originalUpdateMobileCard();
-      updateButtonText();
-    };
+    if (swiper) {
+      swiper.on("slideChange", function () {
+        updateButtonText();
+      });
+    }
   }
 }
 
-// Resize handler to ensure proper layout
-window.addEventListener("resize", () => {
-  // Force a repaint to ensure proper layout on resize
-  document.body.style.display = "none";
-  document.body.offsetHeight; // Trigger reflow
-  document.body.style.display = "";
-
-  // Update slider position after resize
-  setTimeout(() => {
-    updateDesktopCards();
-  }, 100);
-});
-
-// Interface is now initialized via initializeStakeSelection() function when needed
-
-// Accessibility improvements
+// Announce card changes for accessibility
 function announceCardChange() {
   const currentCard = stakesData[currentIndex];
-  const announcement = `Now showing stakes ${currentCard.stakes} with buy-in ${currentCard.buyIn}`;
 
-  // Create or update screen reader announcement
-  let announcer = document.getElementById("sr-announcer");
-  if (!announcer) {
-    announcer = document.createElement("div");
-    announcer.id = "sr-announcer";
-    announcer.setAttribute("aria-live", "polite");
-    announcer.setAttribute("aria-atomic", "true");
-    announcer.style.position = "absolute";
-    announcer.style.left = "-10000px";
-    announcer.style.width = "1px";
-    announcer.style.height = "1px";
-    announcer.style.overflow = "hidden";
-    document.body.appendChild(announcer);
+  // Create or update the live region for screen readers
+  let liveRegion = document.getElementById("card-live-region");
+  if (!liveRegion) {
+    liveRegion = document.createElement("div");
+    liveRegion.id = "card-live-region";
+    liveRegion.setAttribute("aria-live", "polite");
+    liveRegion.setAttribute("aria-atomic", "true");
+    liveRegion.style.position = "absolute";
+    liveRegion.style.left = "-10000px";
+    liveRegion.style.width = "1px";
+    liveRegion.style.height = "1px";
+    liveRegion.style.overflow = "hidden";
+    document.body.appendChild(liveRegion);
   }
 
-  announcer.textContent = announcement;
+  liveRegion.textContent = `Selected ${currentCard.stakes} stakes with buy-in range ${currentCard.buyIn}`;
 }
 
-// Performance optimization: Debounce resize events
+// Utility function for debouncing
 function debounce(func, wait) {
   let timeout;
   return function executedFunction(...args) {
@@ -498,83 +497,66 @@ function debounce(func, wait) {
   };
 }
 
-window.addEventListener(
-  "resize",
-  debounce(() => {
-    updateDesktopCards();
-  }, 250)
-);
+// Main initialization
+function initializeStakeSelection() {
+  // Initialize Swiper for all devices
+  initializeSwiper();
+
+  // Setup interactions
+  setupKeyboardNavigation();
+  setupMobileInteractions();
+
+  // Handle window resize
+  const handleResize = debounce(() => {
+    if (swiper) {
+      swiper.update();
+    }
+  }, 250);
+
+  window.addEventListener("resize", handleResize);
+
+  // Announce initial card
+  announceCardChange();
+
+  console.log("Stake selection initialized");
+}
+
+// Listen for room creation success event
+function setupRoomCreationListener() {
+  // Listen for custom event from websocket-client.js
+  document.addEventListener("room_created_success", function (e) {
+    console.log("Room creation success event detected, hiding loading state");
+    hideLoadingState();
+  });
+
+  // Add a failsafe timeout to hide loading state after 10 seconds
+  // in case the event is never fired
+  window.addEventListener("stake_selection_loading", function () {
+    setTimeout(() => {
+      console.log("Failsafe: Hiding loading state after timeout");
+      hideLoadingState();
+    }, 10000);
+  });
+}
+
+// Auto-initialize when DOM is ready
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", function () {
+    initializeStakeSelection();
+    setupRoomCreationListener();
+  });
+} else {
+  initializeStakeSelection();
+  setupRoomCreationListener();
+}
 
 // Export functions for external use
-if (typeof window !== "undefined") {
-  window.stakeSelection = {
-    setPlayerName,
-    getPlayerName,
-    selectStakeAndCreateRoom,
-    getCurrentStake: () => stakesData[currentIndex],
-    hideLoadingState,
-    showLoadingState,
-  };
-}
-
-// Initialize the stake selection interface
-function initializeStakeSelection() {
-  // Set up event listeners for arrows
-  const leftArrowDesktop = document.getElementById("leftArrowDesktop");
-  const rightArrowDesktop = document.getElementById("rightArrowDesktop");
-  const leftArrowMobile = document.getElementById("leftArrowMobile");
-  const rightArrowMobile = document.getElementById("rightArrowMobile");
-
-  if (leftArrowDesktop)
-    leftArrowDesktop.addEventListener("click", goToPrevious);
-  if (rightArrowDesktop) rightArrowDesktop.addEventListener("click", goToNext);
-  if (leftArrowMobile) leftArrowMobile.addEventListener("click", goToPrevious);
-  if (rightArrowMobile) rightArrowMobile.addEventListener("click", goToNext);
-
-  // Set up event listeners for dots
-  const dots = document.querySelectorAll("#stake-selection-screen .dot");
-  dots.forEach((dot, index) => {
-    dot.addEventListener("click", () => goToCard(index));
-  });
-
-  // Initialize display
-  updateMobileCard();
-  updateDots();
-  updateDesktopCards();
-  addDesktopCardClickHandlers();
-  addMobileCardClickHandler();
-  setupMobileSwipe();
-
-  // Add loading animation
-  const cards = document.querySelectorAll(
-    "#stake-selection-screen .stake-card"
-  );
-  cards.forEach((card, index) => {
-    card.style.opacity = "0";
-    card.style.transform = "translateY(20px)";
-
-    setTimeout(() => {
-      card.style.transition = "all 0.6s cubic-bezier(0.4, 0, 0.2, 1)";
-      card.style.opacity = "1";
-      card.style.transform = "translateY(0)";
-    }, index * 100);
-  });
-}
-
-// Make initialization function available globally
-if (typeof window !== "undefined") {
-  window.initializeStakeSelection = initializeStakeSelection;
-}
-
-// Function to get DOM elements (called when stake selection is shown)
-function getDOMElements() {
-  return {
-    leftArrowDesktop: document.getElementById("leftArrowDesktop"),
-    rightArrowDesktop: document.getElementById("rightArrowDesktop"),
-    leftArrowMobile: document.getElementById("leftArrowMobile"),
-    rightArrowMobile: document.getElementById("rightArrowMobile"),
-    mobileStakes: document.getElementById("mobileStakes"),
-    mobileBuyIn: document.getElementById("mobileBuyIn"),
-    dots: document.querySelectorAll("#stake-selection-screen .dot"),
-  };
-}
+window.stakeSelection = {
+  setPlayerName,
+  getPlayerName,
+  showStakeSelectionScreen,
+  hideStakeSelectionScreen,
+  selectStakeAndCreateRoom,
+  goToCard,
+  stakesData,
+};

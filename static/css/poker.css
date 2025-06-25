@@ -747,11 +747,11 @@ select {
   transition: var(--transition);
 }
 
-select:focus {
+/* select:focus {
   outline: none;
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
+} */
 
 select option {
   background: var(--secondary-bg);
@@ -1224,11 +1224,11 @@ body[data-theme="dark"] #game-response {
   transition: var(--transition);
 }
 
-.close:hover,
+/* .close:hover,
 .close:focus {
   color: var(--text-primary);
   transform: scale(1.1);
-}
+} */
 
 .form-group {
   margin-bottom: 20px;
@@ -1256,12 +1256,12 @@ body[data-theme="dark"] #game-response {
   transition: var(--transition);
 }
 
-.form-group input:focus {
+/* .form-group input:focus {
   outline: none;
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   background: rgba(255, 255, 255, 0.08);
-}
+} */
 
 .button-group {
   display: flex;
@@ -1451,13 +1451,13 @@ body[data-theme="dark"] #game-response {
   }
 }
 
-.action-button:focus,
+/* .action-button:focus,
 .setup-button:focus,
 select:focus,
 input:focus {
   outline: 2px solid var(--accent-color);
   outline-offset: 2px;
-}
+} */
 
 @media print {
   body {
@@ -1930,10 +1930,10 @@ input:focus {
   transition: var(--transition);
 }
 
-.chat-input:focus {
+/* .chat-input:focus {
   border-color: var(--accent-color);
   background: rgba(59, 130, 246, 0.1);
-}
+} */
 
 .chat-input::placeholder {
   color: var(--text-muted);
@@ -2067,14 +2067,16 @@ input:focus {
   font-family: var(--font-sans);
   transition: var(--transition);
   text-align: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-#player-name-input:focus {
+/* #player-name-input:focus {
   outline: none;
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   background: rgba(255, 255, 255, 0.1);
-}
+} */
 
 #player-name-input::placeholder {
   color: var(--text-muted);
@@ -2098,6 +2100,7 @@ input:focus {
   position: relative;
   overflow: hidden;
   background-color: #18b586;
+  width: 100%;
 }
 
 .continue-button::before {
@@ -2178,6 +2181,7 @@ input:focus {
   font-family: var(--font-sans);
   position: relative;
   overflow: hidden;
+  width: 100%;
 }
 
 .join-room-button::before {
@@ -2217,27 +2221,63 @@ input:focus {
 
 @keyframes slideInUp {
   from {
-    opacity: 0;
     transform: translateY(30px);
+    opacity: 0;
   }
   to {
-    opacity: 1;
     transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Responsive styles for name input screen */
+@media (max-width: 768px) {
+  .name-input-container {
+    padding: 2.5rem;
+    width: 85%;
+  }
+
+  .name-input-container h1 {
+    font-size: 2.2rem;
+  }
+
+  .name-input-container p {
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  #player-name-input {
+    padding: 0.9rem 1.25rem;
+    font-size: 1rem;
+  }
+
+  .continue-button,
+  .join-room-button {
+    padding: 0.9rem 1.5rem;
+    font-size: 1rem;
   }
 }
 
 @media (max-width: 640px) {
   .name-input-container {
-    padding: 2rem;
-    margin: 1rem;
+    padding: 2rem 1.5rem;
+    width: 90%;
+    max-width: 400px;
+    border-radius: 20px;
   }
 
   .name-input-container h1 {
-    font-size: 2rem;
+    font-size: 1.8rem;
+    margin-bottom: 0.75rem;
   }
 
   .name-input-container p {
-    font-size: 1rem;
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .name-input-form {
+    gap: 1.25rem;
   }
 
   #player-name-input {
@@ -2245,14 +2285,73 @@ input:focus {
     font-size: 1rem;
   }
 
-  .continue-button {
-    padding: 0.875rem 1.5rem;
-    font-size: 1rem;
-  }
-
+  .continue-button,
   .join-room-button {
     padding: 0.875rem 1.5rem;
     font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .name-input-container {
+    padding: 1.75rem 1.25rem;
+    width: 95%;
+    border-radius: 16px;
+  }
+
+  .name-input-container h1 {
+    font-size: 1.6rem;
+  }
+
+  .name-input-container p {
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .name-input-form {
+    gap: 1rem;
+  }
+
+  #player-name-input {
+    padding: 0.8rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  .continue-button,
+  .join-room-button {
+    padding: 0.8rem 1.25rem;
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-height: 600px) and (orientation: landscape) {
+  .name-input-container {
+    padding: 1.5rem;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .name-input-container h1 {
+    font-size: 1.6rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .name-input-container p {
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+
+  .name-input-form {
+    gap: 0.75rem;
+  }
+
+  #player-name-input {
+    padding: 0.7rem 1rem;
+  }
+
+  .continue-button,
+  .join-room-button {
+    padding: 0.7rem 1rem;
   }
 }
 

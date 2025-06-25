@@ -110,7 +110,15 @@ class PokerWebSocketClient {
           this.roomId = message.roomId;
           this.gameState = message.gameState;
 
-          console.log(`Joined room ${this.roomId} as player ${this.playerId}`);
+          console.log(
+            `Joined room ${message.roomId} as player ${message.playerId}`
+          );
+
+          // Dispatch custom event for room creation success
+          const roomCreatedEvent = new CustomEvent("room_created_success", {
+            detail: { roomId: message.roomId, playerId: message.playerId },
+          });
+          document.dispatchEvent(roomCreatedEvent);
 
           // Update the game UI with the initial state
           this.updateGameUI(message.gameState);

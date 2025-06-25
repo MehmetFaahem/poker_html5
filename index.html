@@ -19,6 +19,9 @@
    <link rel="stylesheet" href="static/css/text.css" type="text/css">
    <link rel="stylesheet" href="static/css/poker.css" type="text/css">
    <link rel="stylesheet" href="static/css/stake-selection.css" type="text/css">
+   
+   <!-- Swiper JS CSS -->
+   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
 
    <link rel="shortcut icon" href="static/images/chip5.png" />
    <link rel="stylesheet" href="static/css/phone.css" type="text/css"
@@ -337,94 +340,111 @@
                             <path d="M32 40.7693L33.836 38.9333L28.236 33.3333H41.3333V30.6667H28.236L33.836 25.0667L32 23.2307L23.2307 32L32 40.7693ZM32.0087 56C28.69 56 25.5698 55.3702 22.648 54.1107C19.7267 52.8511 17.1853 51.1418 15.024 48.9827C12.8627 46.8236 11.1518 44.2844 9.89133 41.3653C8.63044 38.4467 8 35.3278 8 32.0087C8 28.69 8.62978 25.5698 9.88933 22.648C11.1489 19.7267 12.8582 17.1853 15.0173 15.024C17.1764 12.8627 19.7156 11.1518 22.6347 9.89133C25.5533 8.63044 28.6722 8 31.9913 8C35.31 8 38.4302 8.62978 41.352 9.88934C44.2733 11.1489 46.8147 12.8582 48.976 15.0173C51.1373 17.1764 52.8482 19.7156 54.1087 22.6347C55.3696 25.5533 56 28.6722 56 31.9913C56 35.31 55.3702 38.4302 54.1107 41.352C52.8511 44.2733 51.1418 46.8147 48.9827 48.976C46.8236 51.1373 44.2844 52.8482 41.3653 54.1087C38.4467 55.3696 35.3278 56 32.0087 56ZM32 53.3333C37.9556 53.3333 43 51.2667 47.1333 47.1333C51.2667 43 53.3333 37.9556 53.3333 32C53.3333 26.0444 51.2667 21 47.1333 16.8667C43 12.7333 37.9556 10.6667 32 10.6667C26.0444 10.6667 21 12.7333 16.8667 16.8667C12.7333 21 10.6667 26.0444 10.6667 32C10.6667 37.9556 12.7333 43 16.8667 47.1333C21 51.2667 26.0444 53.3333 32 53.3333Z" fill="white"/>
                         </svg>
                     </button>
-
-                    <!-- Cards Container -->
-                    <div class="cards-container">
-                        <!-- Card 1 -->
-                        <div class="stake-card">
-                            <div class="card-container">
-                                <div class="card-top">
-                                    <div class="stakes-label">STAKES</div>
-                                    <div class="stakes-amount">$25K/$75K</div>
+                    
+                    <!-- Swiper Container -->
+                    <div class="swiper stakes-swiper">
+                        <div class="swiper-wrapper">
+                            <!-- Card 1 -->
+                            <div class="swiper-slide">
+                                <div class="stake-card">
+                                    <div class="card-container">
+                                        <div class="card-top">
+                                            <div class="stakes-label">STAKES</div>
+                                            <div class="stakes-amount">$25K/$75K</div>
+                                        </div>
+                                        <div class="card-bottom">
+                                            <div class="buy-in-button">BUY IN</div>
+                                            <div class="buy-in-amount">$2M - $10M</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="card-bottom">
-                                    <div class="buy-in-button">BUY IN</div>
-                                    <div class="buy-in-amount">$2M - $10M</div>
+                            </div>
+
+                            <!-- Card 2 -->
+                            <div class="swiper-slide">
+                                <div class="stake-card">
+                                    <div class="card-container">
+                                        <div class="card-top">
+                                            <div class="stakes-label">STAKES</div>
+                                            <div class="stakes-amount">$50K/$100K</div>
+                                        </div>
+                                        <div class="card-bottom">
+                                            <div class="buy-in-button">BUY IN</div>
+                                            <div class="buy-in-amount">$2M - $10M</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card 3 (Initially Highlighted) -->
+                            <div class="swiper-slide swiper-slide-active">
+                                <div class="stake-card highlighted">
+                                    <div class="card-container">
+                                        <div class="card-top">
+                                            <div class="stakes-label">STAKES</div>
+                                            <div class="stakes-amount">$10K/$50K</div>
+                                        </div>
+                                        <div class="card-bottom">
+                                            <div class="buy-in-button">BUY IN</div>
+                                            <div class="buy-in-amount">$2M - $10M</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card 4 -->
+                            <div class="swiper-slide">
+                                <div class="stake-card">
+                                    <div class="card-container">
+                                        <div class="card-top">
+                                            <div class="stakes-label">STAKES</div>
+                                            <div class="stakes-amount">$5K/$25K</div>
+                                        </div>
+                                        <div class="card-bottom">
+                                            <div class="buy-in-button">BUY IN</div>
+                                            <div class="buy-in-amount">$1M - $5M</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card 5 -->
+                            <div class="swiper-slide">
+                                <div class="stake-card">
+                                    <div class="card-container">
+                                        <div class="card-top">
+                                            <div class="stakes-label">STAKES</div>
+                                            <div class="stakes-amount">$100K/$200K</div>
+                                        </div>
+                                        <div class="card-bottom">
+                                            <div class="buy-in-button">BUY IN</div>
+                                            <div class="buy-in-amount">$5M - $20M</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card 6 -->
+                            <div class="swiper-slide">
+                                <div class="stake-card">
+                                    <div class="card-container">
+                                        <div class="card-top">
+                                            <div class="stakes-label">STAKES</div>
+                                            <div class="stakes-amount">$1K/$5K</div>
+                                        </div>
+                                        <div class="card-bottom">
+                                            <div class="buy-in-button">BUY IN</div>
+                                            <div class="buy-in-amount">$500K - $2M</div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Card 2 -->
-                        <div class="stake-card">
-                            <div class="card-container">
-                                <div class="card-top">
-                                    <div class="stakes-label">STAKES</div>
-                                    <div class="stakes-amount">$50K/$100K</div>
-                                </div>
-                                <div class="card-bottom">
-                                    <div class="buy-in-button">BUY IN</div>
-                                    <div class="buy-in-amount">$2M - $10M</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card 3 (Initially Highlighted) -->
-                        <div class="stake-card highlighted">
-                            <div class="card-container">
-                                <div class="card-top">
-                                    <div class="stakes-label">STAKES</div>
-                                    <div class="stakes-amount">$10K/$50K</div>
-                                </div>
-                                <div class="card-bottom">
-                                    <div class="buy-in-button">BUY IN</div>
-                                    <div class="buy-in-amount">$2M - $10M</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card 4 -->
-                        <div class="stake-card">
-                            <div class="card-container">
-                                <div class="card-top">
-                                    <div class="stakes-label">STAKES</div>
-                                    <div class="stakes-amount">$5K/$25K</div>
-                                </div>
-                                <div class="card-bottom">
-                                    <div class="buy-in-button">BUY IN</div>
-                                    <div class="buy-in-amount">$1M - $5M</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card 5 -->
-                        <div class="stake-card">
-                            <div class="card-container">
-                                <div class="card-top">
-                                    <div class="stakes-label">STAKES</div>
-                                    <div class="stakes-amount">$100K/$200K</div>
-                                </div>
-                                <div class="card-bottom">
-                                    <div class="buy-in-button">BUY IN</div>
-                                    <div class="buy-in-amount">$5M - $20M</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card 6 -->
-                        <div class="stake-card">
-                            <div class="card-container">
-                                <div class="card-top">
-                                    <div class="stakes-label">STAKES</div>
-                                    <div class="stakes-amount">$1K/$5K</div>
-                                </div>
-                                <div class="card-bottom">
-                                    <div class="buy-in-button">BUY IN</div>
-                                    <div class="buy-in-amount">$500K - $2M</div>
-                                </div>
-                            </div>
-                        </div>
+                        
+                        <!-- Add pagination -->
+                        <div class="swiper-pagination"></div>
                     </div>
-
+                    
                     <!-- Right Arrow -->
                     <button class="arrow-button" id="rightArrowDesktop" aria-label="Navigate right">
                         <svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -501,6 +521,8 @@
     <script src="static/js/toast-notifications.js"></script>
     <script src="static/js/chat.js"></script>
     <script src="static/js/ui-enhancements.js"></script>
+    <!-- Swiper JS -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="static/js/stake-selection.js"></script>
     <script src="static/js/jsholdem/poker.js"></script>
 </body>
