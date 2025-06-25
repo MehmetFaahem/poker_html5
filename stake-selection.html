@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Poker Stakes Interface</title>
+    <link rel="stylesheet" href="static/css/stake-selection.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <div class="main-content">
+        <!-- Desktop Layout -->
+        <div class="desktop-layout">
+          <!-- Left Arrow -->
+          <button
+            class="arrow-button"
+            id="leftArrowDesktop"
+            aria-label="Navigate left"
+          >
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 64 64"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M32 40.7693L33.836 38.9333L28.236 33.3333H41.3333V30.6667H28.236L33.836 25.0667L32 23.2307L23.2307 32L32 40.7693ZM32.0087 56C28.69 56 25.5698 55.3702 22.648 54.1107C19.7267 52.8511 17.1853 51.1418 15.024 48.9827C12.8627 46.8236 11.1518 44.2844 9.89133 41.3653C8.63044 38.4467 8 35.3278 8 32.0087C8 28.69 8.62978 25.5698 9.88933 22.648C11.1489 19.7267 12.8582 17.1853 15.0173 15.024C17.1764 12.8627 19.7156 11.1518 22.6347 9.89133C25.5533 8.63044 28.6722 8 31.9913 8C35.31 8 38.4302 8.62978 41.352 9.88934C44.2733 11.1489 46.8147 12.8582 48.976 15.0173C51.1373 17.1764 52.8482 19.7156 54.1087 22.6347C55.3696 25.5533 56 28.6722 56 31.9913C56 35.31 55.3702 38.4302 54.1107 41.352C52.8511 44.2733 51.1418 46.8147 48.9827 48.976C46.8236 51.1373 44.2844 52.8482 41.3653 54.1087C38.4467 55.3696 35.3278 56 32.0087 56ZM32 53.3333C37.9556 53.3333 43 51.2667 47.1333 47.1333C51.2667 43 53.3333 37.9556 53.3333 32C53.3333 26.0444 51.2667 21 47.1333 16.8667C43 12.7333 37.9556 10.6667 32 10.6667C26.0444 10.6667 21 12.7333 16.8667 16.8667C12.7333 21 10.6667 26.0444 10.6667 32C10.6667 37.9556 12.7333 43 16.8667 47.1333C21 51.2667 26.0444 53.3333 32 53.3333Z"
+                fill="white"
+              />
+            </svg>
+          </button>
+
+          <!-- Cards Container (now scrollable slider) -->
+          <div class="cards-container">
+            <!-- Card 1 -->
+            <div class="stake-card">
+              <div class="card-container">
+                <div class="card-top">
+                  <div class="stakes-label">STAKES</div>
+                  <div class="stakes-amount">$25K/$75K</div>
+                </div>
+                <div class="card-bottom">
+                  <div class="buy-in-button">BUY IN</div>
+                  <div class="buy-in-amount">$2M - $10M</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="stake-card">
+              <div class="card-container">
+                <div class="card-top">
+                  <div class="stakes-label">STAKES</div>
+                  <div class="stakes-amount">$50K/$100K</div>
+                </div>
+                <div class="card-bottom">
+                  <div class="buy-in-button">BUY IN</div>
+                  <div class="buy-in-amount">$2M - $10M</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 3 (Initially Highlighted) -->
+            <div class="stake-card highlighted">
+              <div class="card-container">
+                <div class="card-top">
+                  <div class="stakes-label">STAKES</div>
+                  <div class="stakes-amount">$10K/$50K</div>
+                </div>
+                <div class="card-bottom">
+                  <div class="buy-in-button">BUY IN</div>
+                  <div class="buy-in-amount">$2M - $10M</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 4 -->
+            <div class="stake-card">
+              <div class="card-container">
+                <div class="card-top">
+                  <div class="stakes-label">STAKES</div>
+                  <div class="stakes-amount">$5K/$25K</div>
+                </div>
+                <div class="card-bottom">
+                  <div class="buy-in-button">BUY IN</div>
+                  <div class="buy-in-amount">$1M - $5M</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 5 -->
+            <div class="stake-card">
+              <div class="card-container">
+                <div class="card-top">
+                  <div class="stakes-label">STAKES</div>
+                  <div class="stakes-amount">$100K/$200K</div>
+                </div>
+                <div class="card-bottom">
+                  <div class="buy-in-button">BUY IN</div>
+                  <div class="buy-in-amount">$5M - $20M</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 6 -->
+            <div class="stake-card">
+              <div class="card-container">
+                <div class="card-top">
+                  <div class="stakes-label">STAKES</div>
+                  <div class="stakes-amount">$1K/$5K</div>
+                </div>
+                <div class="card-bottom">
+                  <div class="buy-in-button">BUY IN</div>
+                  <div class="buy-in-amount">$500K - $2M</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Arrow -->
+          <button
+            class="arrow-button"
+            id="rightArrowDesktop"
+            aria-label="Navigate right"
+          >
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 64 64"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M32 40.7693L40.7693 32L32 23.2307L30.164 25.0667L35.764 30.6667H22.6667V33.3333H35.764L30.164 38.9333L32 40.7693ZM32.0087 56C28.69 56 25.5698 55.3702 22.648 54.1107C19.7267 52.8511 17.1853 51.1418 15.024 48.9827C12.8627 46.8236 11.1518 44.2844 9.89133 41.3653C8.63044 38.4467 8 35.3278 8 32.0087C8 28.69 8.62978 25.5698 9.88933 22.648C11.1489 19.7267 12.8582 17.1853 15.0173 15.024C17.1764 12.8627 19.7156 11.1518 22.6347 9.89133C25.5533 8.63044 28.6722 8 31.9913 8C35.31 8 38.4302 8.62978 41.352 9.88934C44.2733 11.1489 46.8147 12.8582 48.976 15.0173C51.1373 17.1764 52.8482 19.7156 54.1087 22.6347C55.3696 25.5533 56 28.6722 56 31.9913C56 35.31 55.3702 38.4302 54.1107 41.352C52.8511 44.2733 51.1418 46.8147 48.9827 48.976C46.8236 51.1373 44.2844 52.8482 41.3653 54.1087C38.4467 55.3696 35.3278 56 32.0087 56ZM32 53.3333C37.9556 53.3333 43 51.2667 47.1333 47.1333C51.2667 43 53.3333 37.9556 53.3333 32C53.3333 26.0444 51.2667 21 47.1333 16.8667C43 12.7333 37.9556 10.6667 32 10.6667C26.0444 10.6667 21 12.7333 16.8667 16.8667C12.7333 21 10.6667 26.0444 10.6667 32C10.6667 37.9556 12.7333 43 16.8667 47.1333C21 51.2667 26.0444 53.3333 32 53.3333Z"
+                fill="white"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Selection Instructions -->
+        <div class="selection-instructions">
+          <p>Double-click a card to select your stakes and create a room</p>
+          <p class="keyboard-hint">
+            Use arrow keys to navigate • Press Enter to select
+          </p>
+        </div>
+
+        <!-- Mobile Layout -->
+        <div class="mobile-layout">
+          <!-- Left Arrow -->
+          <button
+            class="arrow-button mobile"
+            id="leftArrowMobile"
+            aria-label="Navigate left"
+          >
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 64 64"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M32 40.7693L33.836 38.9333L28.236 33.3333H41.3333V30.6667H28.236L33.836 25.0667L32 23.2307L23.2307 32L32 40.7693ZM32.0087 56C28.69 56 25.5698 55.3702 22.648 54.1107C19.7267 52.8511 17.1853 51.1418 15.024 48.9827C12.8627 46.8236 11.1518 44.2844 9.89133 41.3653C8.63044 38.4467 8 35.3278 8 32.0087C8 28.69 8.62978 25.5698 9.88933 22.648C11.1489 19.7267 12.8582 17.1853 15.0173 15.024C17.1764 12.8627 19.7156 11.1518 22.6347 9.89133C25.5533 8.63044 28.6722 8 31.9913 8C35.31 8 38.4302 8.62978 41.352 9.88934C44.2733 11.1489 46.8147 12.8582 48.976 15.0173C51.1373 17.1764 52.8482 19.7156 54.1087 22.6347C55.3696 25.5533 56 28.6722 56 31.9913C56 35.31 55.3702 38.4302 54.1107 41.352C52.8511 44.2733 51.1418 46.8147 48.9827 48.976C46.8236 51.1373 44.2844 52.8482 41.3653 54.1087C38.4467 55.3696 35.3278 56 32.0087 56ZM32 53.3333C37.9556 53.3333 43 51.2667 47.1333 47.1333C51.2667 43 53.3333 37.9556 53.3333 32C53.3333 26.0444 51.2667 21 47.1333 16.8667C43 12.7333 37.9556 10.6667 32 10.6667C26.0444 10.6667 21 12.7333 16.8667 16.8667C12.7333 21 10.6667 26.0444 10.6667 32C10.6667 37.9556 12.7333 43 16.8667 47.1333C21 51.2667 26.0444 53.3333 32 53.3333Z"
+                fill="white"
+              />
+            </svg>
+          </button>
+
+          <!-- Single Card for Mobile -->
+          <div class="mobile-card-container">
+            <div class="stake-card highlighted" id="mobileCard">
+              <div class="card-container">
+                <div class="card-top">
+                  <div class="stakes-label">STAKES</div>
+                  <div class="stakes-amount" id="mobileStakes">$10K/$50K</div>
+                </div>
+                <div class="card-bottom">
+                  <div class="buy-in-button">BUY IN</div>
+                  <div class="buy-in-amount" id="mobileBuyIn">$2M - $10M</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Arrow -->
+          <button
+            class="arrow-button mobile"
+            id="rightArrowMobile"
+            aria-label="Navigate right"
+          >
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 64 64"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M32 40.7693L40.7693 32L32 23.2307L30.164 25.0667L35.764 30.6667H22.6667V33.3333H35.764L30.164 38.9333L32 40.7693ZM32.0087 56C28.69 56 25.5698 55.3702 22.648 54.1107C19.7267 52.8511 17.1853 51.1418 15.024 48.9827C12.8627 46.8236 11.1518 44.2844 9.89133 41.3653C8.63044 38.4467 8 35.3278 8 32.0087C8 28.69 8.62978 25.5698 9.88933 22.648C11.1489 19.7267 12.8582 17.1853 15.0173 15.024C17.1764 12.8627 19.7156 11.1518 22.6347 9.89133C25.5533 8.63044 28.6722 8 31.9913 8C35.31 8 38.4302 8.62978 41.352 9.88934C44.2733 11.1489 46.8147 12.8582 48.976 15.0173C51.1373 17.1764 52.8482 19.7156 54.1087 22.6347C55.3696 25.5533 56 28.6722 56 31.9913C56 35.31 55.3702 38.4302 54.1107 41.352C52.8511 44.2733 51.1418 46.8147 48.9827 48.976C46.8236 51.1373 44.2844 52.8482 41.3653 54.1087C38.4467 55.3696 35.3278 56 32.0087 56ZM32 53.3333C37.9556 53.3333 43 51.2667 47.1333 47.1333C51.2667 43 53.3333 37.9556 53.3333 32C53.3333 26.0444 51.2667 21 47.1333 16.8667C43 12.7333 37.9556 10.6667 32 10.6667C26.0444 10.6667 21 12.7333 16.8667 16.8667C12.7333 21 10.6667 26.0444 10.6667 32C10.6667 37.9556 12.7333 43 16.8667 47.1333C21 51.2667 26.0444 53.3333 32 53.3333Z"
+                fill="white"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Mobile Selection Button -->
+        <div class="mobile-selection">
+          <button id="mobile-select-button" class="mobile-select-btn">
+            Select This Stake & Create Room
+          </button>
+        </div>
+
+        <!-- Mobile Dots Indicator (now 6 dots) -->
+        <div class="mobile-dots">
+          <button class="dot" data-index="0" aria-label="Go to card 1"></button>
+          <button class="dot" data-index="1" aria-label="Go to card 2"></button>
+          <button
+            class="dot active"
+            data-index="2"
+            aria-label="Go to card 3"
+          ></button>
+          <button class="dot" data-index="3" aria-label="Go to card 4"></button>
+          <button class="dot" data-index="4" aria-label="Go to card 5"></button>
+          <button class="dot" data-index="5" aria-label="Go to card 6"></button>
+        </div>
+      </div>
+    </div>
+
+    <script src="static/js/stake-selection.js"></script>
+  </body>
+</html>

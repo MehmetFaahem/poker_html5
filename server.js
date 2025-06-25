@@ -50,6 +50,7 @@ class GameRoom {
       startingChips: roomSettings.startingChips || 500,
       minCall: roomSettings.minCall || 5,
       maxCall: roomSettings.maxCall || 50,
+      stakeLevel: roomSettings.stakeLevel || null,
       creatorId: roomSettings.creatorId || null,
       actionTimeout: roomSettings.actionTimeout || 10000, // 10 seconds default
     };
@@ -903,6 +904,7 @@ wss.on("connection", (ws) => {
               startingChips: message.startingChips || 500,
               minCall: message.minCall || 5,
               maxCall: message.maxCall || 50,
+              stakeLevel: message.stakeLevel || null,
               creatorId: playerId,
             };
             roomId = createRoom(roomSettings);

@@ -119,8 +119,8 @@ class PokerWebSocketClient {
           gui_write_game_response(`Joined room: ${this.roomId}`);
           gui_set_game_response_font_color("green");
 
-          // Update room code display
-          updateRoomCodeDisplay(this.roomId);
+          // Update room code display and hide initial buttons
+          this.updateUIAfterJoining(this.roomId);
 
           // Enable chat and set player info
           if (window.chatManager) {
@@ -149,6 +149,11 @@ class PokerWebSocketClient {
 
         if (message.gameState) {
           this.updateGameUI(message.gameState);
+        }
+
+        // Handle start game UI when a new player joins
+        if (message.gameState) {
+          this.handleStartGameUI(message.gameState);
         }
 
         if (this.onPlayerJoined) {
@@ -181,6 +186,9 @@ class PokerWebSocketClient {
       case "game_started":
         console.log("Game started!");
         gui_log_to_history("New hand started!");
+
+        // Hide start game modal for all players
+        this.hideStartGameModal();
 
         // Show new hand toast
         showNewHandToast();
@@ -475,6 +483,9 @@ class PokerWebSocketClient {
           startGameButton.classList.remove("show");
         }
       }
+
+      // Handle start game modal and prominent button
+      this.handleStartGameUI(gameStateData);
     }
 
     // Show current player toast (only for other players, not yourself)
@@ -908,6 +919,147 @@ class PokerWebSocketClient {
   isInGame() {
     return this.isConnected && this.roomId && this.playerId;
   }
+
+  updateUIAfterJoining(roomId) {
+    // Hide the initial multiplayer buttons (with null checks)
+    const enterNameBtn = document.getElementById("enter-name-button");
+    if (enterNameBtn) enterNameBtn.style.display = "none";
+
+    const joinRoomBtn = document.getElementById("join-room-button");
+    if (joinRoomBtn) joinRoomBtn.style.display = "none";
+
+    const createRoomBtn = document.getElementById("create-room-button");
+    if (createRoomBtn) createRoomBtn.style.display = "none";
+
+    const singlePlayerBtn = document.getElementById("singleplayer-button");
+    if (singlePlayerBtn) singlePlayerBtn.style.display = "none";
+
+    // Show and update the room code display
+    const roomCodeDisplay = document.getElementById("room-code-display");
+    if (roomCodeDisplay) {
+      roomCodeDisplay.style.visibility = "visible";
+      roomCodeDisplay.style.display = "flex";
+
+      // Create room code display with copy button if it doesn't exist
+      roomCodeDisplay.innerHTML = `
+        <span>Room ID: ${roomId}</span>
+        <button onclick="copyRoomId('${roomId}')" class="copy-button">
+          <i class="fas fa-copy"></i>
+        </button>
+      `;
+    }
+
+    // Initialize start game modal handlers
+    this.initializeStartGameHandlers();
+  }
+
+  handleStartGameUI(gameStateData) {
+    if (!gameStateData || !gameStateData.players) return;
+
+    const playerCount = gameStateData.players.length;
+    const isGameActive =
+      gameStateData.gameState && gameStateData.gameState.isGameActive;
+
+    // Show/hide prominent start game button
+    const prominentStartGame = document.getElementById("prominent-start-game");
+    if (prominentStartGame) {
+      if (playerCount >= 2 && !isGameActive) {
+        prominentStartGame.style.display = "flex";
+
+        // Update player count text
+        const readyPlayersText = document.getElementById("ready-players-text");
+        if (readyPlayersText) {
+          readyPlayersText.textContent = `${playerCount} Player${
+            playerCount > 1 ? "s" : ""
+          } Ready`;
+        }
+      } else {
+        prominentStartGame.style.display = "none";
+      }
+    }
+
+    // Show start game modal when exactly 2 players join (only once)
+    if (playerCount === 2 && !isGameActive && !this.startGameModalShown) {
+      this.showStartGameModal(playerCount);
+      this.startGameModalShown = true;
+    }
+
+    // Reset modal flag and hide modal when game becomes active or player count drops
+    if (isGameActive || playerCount < 2) {
+      this.startGameModalShown = false;
+      this.hideStartGameModal(); // Hide modal immediately for all scenarios
+    }
+  }
+
+  showStartGameModal(playerCount) {
+    const modal = document.getElementById("start-game-modal");
+    const playerCountText = document.getElementById("player-count-text");
+
+    if (modal && playerCountText) {
+      playerCountText.textContent = `${playerCount} player${
+        playerCount > 1 ? "s are" : " is"
+      } in the room`;
+      modal.style.display = "block";
+    }
+  }
+
+  hideStartGameModal() {
+    const modal = document.getElementById("start-game-modal");
+    if (modal) {
+      modal.style.display = "none";
+    }
+  }
+
+  initializeStartGameHandlers() {
+    // Prevent multiple initializations
+    if (this.startGameHandlersInitialized) return;
+    this.startGameHandlersInitialized = true;
+
+    const startGameNowBtn = document.getElementById("start-game-now");
+    const waitForPlayersBtn = document.getElementById("wait-for-players");
+    const prominentStartBtn = document.getElementById("prominent-start-button");
+
+    // Start game now button
+    if (startGameNowBtn) {
+      startGameNowBtn.onclick = () => {
+        this.startGame();
+        this.hideStartGameModal();
+      };
+    }
+
+    // Wait for more players button
+    if (waitForPlayersBtn) {
+      waitForPlayersBtn.onclick = () => {
+        this.hideStartGameModal();
+        gui_write_game_response("Waiting for more players to join...");
+        gui_set_game_response_font_color("blue");
+      };
+    }
+
+    // Prominent start game button
+    if (prominentStartBtn) {
+      prominentStartBtn.onclick = () => {
+        this.startGame();
+        // Hide the prominent button immediately for better UX
+        const prominentStartGame = document.getElementById(
+          "prominent-start-game"
+        );
+        if (prominentStartGame) {
+          prominentStartGame.style.display = "none";
+        }
+      };
+    }
+
+    // Close modal when clicking outside
+    const modal = document.getElementById("start-game-modal");
+    if (modal) {
+      window.addEventListener("click", (event) => {
+        if (event.target === modal) {
+          this.hideStartGameModal();
+        }
+      });
+    }
+  }
 }
 
 // Global instance and mode tracking
@@ -1052,4 +1204,25 @@ function startMultiplayerGame() {
 
 function getRoomCode() {
   return wsClient ? wsClient.getRoomId() : null;
+}
+
+// Function to copy room ID to clipboard
+function copyRoomId(roomId) {
+  navigator.clipboard
+    .writeText(roomId)
+    .then(() => {
+      // Show a toast notification
+      const toast = document.createElement("div");
+      toast.className = "toast";
+      toast.textContent = "Room ID copied to clipboard!";
+      document.body.appendChild(toast);
+
+      // Remove the toast after 2 seconds
+      setTimeout(() => {
+        toast.remove();
+      }, 2000);
+    })
+    .catch((err) => {
+      console.error("Failed to copy room ID:", err);
+    });
 }

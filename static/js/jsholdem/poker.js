@@ -130,7 +130,10 @@ function init() {
   gui_show_game_response();
 
   // Start by asking player what they want to do
-  showMultiplayerOptions();
+  // showMultiplayerOptions();
+
+  // Show name input screen immediately
+  showNameInputScreen();
 }
 
 function make_deck() {
@@ -1886,6 +1889,7 @@ function initializeMultiplayerUI() {
   const createRoomBtn = document.getElementById("create-room-button");
   const startGameBtn = document.getElementById("start-game-button");
   const roomCodeDisplay = document.getElementById("room-code-display");
+  const enterNameBtn = document.getElementById("enter-name-button");
 
   // Initially hide the start game button (will be shown when 2+ players join)
   if (startGameBtn) {
@@ -1920,6 +1924,12 @@ function initializeMultiplayerUI() {
     };
   }
 
+  if (enterNameBtn) {
+    enterNameBtn.onclick = function () {
+      showNameInputScreen();
+    };
+  }
+
   if (startGameBtn) {
     startGameBtn.onclick = function () {
       startMultiplayerGame();
@@ -1945,63 +1955,298 @@ function initializeMultiplayerUI() {
   const singleplayerBtn = document.getElementById("singleplayer-button");
   if (singleplayerBtn) {
     singleplayerBtn.onclick = function () {
-      console.log("Single player button clicked!");
-
-      // Disconnect from multiplayer server and enable single player mode
-      if (wsClient) {
-        console.log("Disconnecting websocket client...");
-        wsClient.enableSinglePlayerMode();
-      }
-
-      // Restore single player functions
-      if (typeof restoreSinglePlayerFunctions === "function") {
-        restoreSinglePlayerFunctions();
-      }
-
-      // Hide multiplayer options
-      const multiplayerOptions = document.getElementById("multiplayer-options");
-      if (multiplayerOptions) {
-        console.log("Hiding multiplayer options...");
-        multiplayerOptions.style.display = "none";
-      }
-
-      // Clear any existing UI state and button handlers
-      gui_hide_fold_call_click();
-      gui_hide_bet_range();
-      gui_write_modal_box("");
-
-      // Remove any existing event listeners on action buttons to prevent conflicts
-      const actionButtons = document.getElementById("action-options");
-      if (actionButtons) {
-        const foldButton = actionButtons.children["fold-button"];
-        const callButton = actionButtons.children["call-button"];
-
-        if (foldButton) {
-          foldButton.onclick = null;
-          foldButton.style.display = "none";
-        }
-        if (callButton) {
-          callButton.onclick = null;
-          callButton.style.display = "none";
-        }
-      }
-
-      // Also clear bet button handler
-      const betButton = document.getElementById("bet-button");
-      if (betButton) {
-        betButton.onclick = null;
-      }
-
-      // Switch to single-player mode
-      gui_write_game_response("Starting single-player game...");
-      gui_set_game_response_font_color("blue");
-
-      console.log("Calling new_game_singleplayer...");
       new_game_singleplayer();
     };
-  } else {
-    console.log("Single player button not found!");
   }
+
+  // Setup name input screen handlers
+  setupNameInputHandlers();
+}
+
+// Name input screen functions
+function showNameInputScreen() {
+  const nameInputScreen = document.getElementById("name-input-screen");
+  const playerNameInput = document.getElementById("player-name-input");
+
+  if (nameInputScreen) {
+    // Pre-fill with existing name if available
+    const existingName = getLocalStorage("playername");
+    if (existingName && playerNameInput) {
+      playerNameInput.value = existingName;
+    }
+
+    nameInputScreen.style.display = "flex";
+
+    // Focus on input
+    if (playerNameInput) {
+      setTimeout(() => playerNameInput.focus(), 300);
+    }
+  }
+}
+
+function hideNameInputScreen() {
+  const nameInputScreen = document.getElementById("name-input-screen");
+  if (nameInputScreen) {
+    nameInputScreen.style.display = "none";
+  }
+}
+
+function setupNameInputHandlers() {
+  const continueBtn = document.getElementById("continue-to-stakes");
+  const joinRoomBtn = document.getElementById("join-room-from-name");
+  const playerNameInput = document.getElementById("player-name-input");
+
+  if (continueBtn) {
+    continueBtn.onclick = function () {
+      const playerName = playerNameInput ? playerNameInput.value.trim() : "";
+
+      if (!playerName) {
+        alert("Please enter your name to continue.");
+        if (playerNameInput) playerNameInput.focus();
+        return;
+      }
+
+      if (playerName.length > 20) {
+        alert("Name is too long. Please use 20 characters or less.");
+        if (playerNameInput) playerNameInput.focus();
+        return;
+      }
+
+      // Save the player name
+      setLocalStorage("playername", playerName);
+
+      // Hide name input screen
+      hideNameInputScreen();
+
+      // Navigate to stake selection
+      navigateToStakeSelection(playerName);
+    };
+  }
+
+  if (joinRoomBtn) {
+    joinRoomBtn.onclick = function () {
+      const playerName = playerNameInput ? playerNameInput.value.trim() : "";
+
+      if (!playerName) {
+        alert("Please enter your name first.");
+        if (playerNameInput) playerNameInput.focus();
+        return;
+      }
+
+      if (playerName.length > 20) {
+        alert("Name is too long. Please use 20 characters or less.");
+        if (playerNameInput) playerNameInput.focus();
+        return;
+      }
+
+      // Save the player name
+      setLocalStorage("playername", playerName);
+
+      // Prompt for room ID
+      const roomId = prompt("Enter Room ID:");
+      if (roomId && roomId.trim()) {
+        // Hide name input screen
+        hideNameInputScreen();
+
+        // Join the room
+        joinPokerRoom(roomId.trim(), playerName);
+      }
+    };
+  }
+
+  if (playerNameInput) {
+    // Handle Enter key
+    playerNameInput.addEventListener("keypress", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        if (continueBtn) continueBtn.click();
+      }
+    });
+
+    // Update button state based on input
+    playerNameInput.addEventListener("input", function () {
+      const name = this.value.trim();
+      if (continueBtn) {
+        continueBtn.disabled = !name;
+        continueBtn.style.opacity = name ? "1" : "0.5";
+      }
+      if (joinRoomBtn) {
+        joinRoomBtn.disabled = !name;
+        joinRoomBtn.style.opacity = name ? "1" : "0.5";
+      }
+    });
+  }
+}
+
+function navigateToStakeSelection(playerName) {
+  // Hide name input screen
+  hideNameInputScreen();
+
+  // Show stake selection screen
+  showStakeSelectionScreen(playerName);
+}
+
+function showStakeSelectionScreen(playerName) {
+  const stakeSelectionScreen = document.getElementById(
+    "stake-selection-screen"
+  );
+
+  if (stakeSelectionScreen) {
+    // Set player name in the stake selection system
+    if (
+      typeof window.stakeSelection !== "undefined" &&
+      window.stakeSelection.setPlayerName
+    ) {
+      window.stakeSelection.setPlayerName(playerName);
+    }
+
+    stakeSelectionScreen.style.display = "flex";
+
+    // Initialize stake selection if it hasn't been initialized yet
+    setTimeout(() => {
+      if (typeof initializeStakeSelection === "function") {
+        initializeStakeSelection();
+      }
+    }, 100);
+  }
+}
+
+function hideStakeSelectionScreen() {
+  const stakeSelectionScreen = document.getElementById(
+    "stake-selection-screen"
+  );
+  if (stakeSelectionScreen) {
+    stakeSelectionScreen.style.display = "none";
+  }
+}
+
+// Function to create room with stake settings (called from stake selection)
+function createRoomWithStakeSettings(playerName, stakeSettings) {
+  console.log("createRoomWithStakeSettings called with:", {
+    playerName,
+    stakeSettings,
+  });
+  console.log(
+    "wsClient status:",
+    wsClient ? "exists" : "null",
+    wsClient ? (wsClient.isConnected ? "connected" : "not connected") : ""
+  );
+
+  // Set up a one-time listener for successful room creation
+  const setupRoomCreationListener = () => {
+    if (wsClient && wsClient.handleMessage) {
+      const originalHandler = wsClient.handleMessage.bind(wsClient);
+      wsClient.handleMessage = function (message) {
+        // Call the original handler first
+        originalHandler(message);
+
+        // Check if room was successfully created
+        if (message.type === "joined_room" && message.success) {
+          console.log("Room created successfully from poker.js");
+
+          // Hide stake selection if it's visible
+          if (typeof hideStakeSelectionScreen === "function") {
+            hideStakeSelectionScreen();
+          }
+
+          // Hide loading state if available
+          if (
+            typeof window.stakeSelection !== "undefined" &&
+            window.stakeSelection.hideLoadingState
+          ) {
+            window.stakeSelection.hideLoadingState();
+          }
+
+          // Restore original handler
+          wsClient.handleMessage = originalHandler;
+        }
+      };
+    }
+  };
+
+  // Use the websocket client to create room with stake settings
+  if (wsClient && wsClient.isConnected) {
+    console.log("Creating room with stake settings...");
+    setupRoomCreationListener();
+    wsClient.createRoomWithSettings(playerName, {
+      startingChips: stakeSettings.startingChips,
+      minCall: stakeSettings.minCall,
+      maxCall: stakeSettings.maxCall,
+      stakeLevel: stakeSettings.stakes,
+    });
+  } else {
+    // Initialize WebSocket client if not available
+    if (!wsClient) {
+      console.log("Initializing WebSocket client...");
+      gui_write_game_response("Connecting to server...");
+      gui_set_game_response_font_color("orange");
+
+      initializeMultiplayer();
+
+      // Wait for connection before creating room
+      setTimeout(() => {
+        if (wsClient && wsClient.isConnected) {
+          console.log("Connection established, creating room...");
+          setupRoomCreationListener();
+          wsClient.createRoomWithSettings(playerName, {
+            startingChips: stakeSettings.startingChips,
+            minCall: stakeSettings.minCall,
+            maxCall: stakeSettings.maxCall,
+            stakeLevel: stakeSettings.stakes,
+          });
+        } else {
+          console.log("Connection failed");
+          gui_write_game_response(
+            "Failed to connect to server. Please refresh the page."
+          );
+          gui_set_game_response_font_color("red");
+
+          // Hide loading state on failure
+          if (
+            typeof window.stakeSelection !== "undefined" &&
+            window.stakeSelection.hideLoadingState
+          ) {
+            window.stakeSelection.hideLoadingState();
+          }
+        }
+      }, 2000);
+    } else {
+      console.log("WebSocket exists but not connected, waiting...");
+      gui_write_game_response("Connecting to server...");
+      gui_set_game_response_font_color("orange");
+
+      // Wait for existing connection to establish
+      setTimeout(() => {
+        if (wsClient && wsClient.isConnected) {
+          console.log("Connection established, creating room...");
+          setupRoomCreationListener();
+          wsClient.createRoomWithSettings(playerName, {
+            startingChips: stakeSettings.startingChips,
+            minCall: stakeSettings.minCall,
+            maxCall: stakeSettings.maxCall,
+            stakeLevel: stakeSettings.stakes,
+          });
+        } else {
+          console.log("Connection timeout");
+          gui_write_game_response("Connection timeout. Please try again.");
+          gui_set_game_response_font_color("red");
+
+          // Hide loading state on timeout
+          if (
+            typeof window.stakeSelection !== "undefined" &&
+            window.stakeSelection.hideLoadingState
+          ) {
+            window.stakeSelection.hideLoadingState();
+          }
+        }
+      }, 2000);
+    }
+  }
+}
+
+// Make the function globally available for stake selection page
+if (typeof window !== "undefined") {
+  window.createRoomWithStakeSettings = createRoomWithStakeSettings;
 }
 
 function showMultiplayerOptions() {
