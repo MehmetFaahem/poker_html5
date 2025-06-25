@@ -465,6 +465,18 @@ class UIEnhancementManager {
     // Add keyboard shortcuts for common actions
     if (event.ctrlKey || event.metaKey) return;
 
+    // Don't trigger shortcuts if user is typing in an input field
+    const activeElement = document.activeElement;
+    if (
+      activeElement &&
+      (activeElement.tagName === "INPUT" ||
+        activeElement.tagName === "TEXTAREA" ||
+        activeElement.isContentEditable ||
+        activeElement.id === "chat-input")
+    ) {
+      return;
+    }
+
     switch (event.key) {
       case "f":
       case "F":

@@ -121,6 +121,13 @@ class PokerWebSocketClient {
 
           // Update room code display
           updateRoomCodeDisplay(this.roomId);
+
+          // Enable chat and set player info
+          if (window.chatManager) {
+            window.chatManager.setPlayerInfo(this.playerId, this.playerName);
+            window.chatManager.setWebSocketClient(this); // Ensure WebSocket is set
+            window.chatManager.setEnabled(true);
+          }
         } else {
           console.error("Failed to join room:", message.error);
           gui_write_game_response(`Failed to join room: ${message.error}`);
@@ -134,6 +141,11 @@ class PokerWebSocketClient {
 
         // Show join toast
         showPlayerJoinToast(message.playerName);
+
+        // Notify chat
+        if (window.chatManager) {
+          window.chatManager.onPlayerJoined(message.playerName);
+        }
 
         if (message.gameState) {
           this.updateGameUI(message.gameState);
@@ -152,6 +164,11 @@ class PokerWebSocketClient {
         const leftPlayerName = this.getPlayerName(message.playerId) || "Player";
         showPlayerLeaveToast(leftPlayerName);
 
+        // Notify chat
+        if (window.chatManager) {
+          window.chatManager.onPlayerLeft(leftPlayerName);
+        }
+
         if (message.gameState) {
           this.updateGameUI(message.gameState);
         }
@@ -167,6 +184,11 @@ class PokerWebSocketClient {
 
         // Show new hand toast
         showNewHandToast();
+
+        // Notify chat
+        if (window.chatManager) {
+          window.chatManager.onGameStarted();
+        }
 
         // Clear community cards at start of new hand
         gui_clear_all_board_cards();
@@ -198,12 +220,22 @@ class PokerWebSocketClient {
             this.getPlayerName(message.playerId) ||
             `Player ${message.playerId}`;
           this.showActionToast(playerName, message.action);
-
-          // Community card animations are now handled when cards are actually revealed, not on every action
         }
 
         if (this.onGameUpdate) {
           this.onGameUpdate(message);
+        }
+        break;
+
+      case "chat_message":
+        console.log("Chat message received:", message);
+        if (window.chatManager) {
+          window.chatManager.receiveMessage({
+            playerId: message.playerId,
+            playerName: message.playerName,
+            message: message.message,
+            timestamp: message.timestamp,
+          });
         }
         break;
 
@@ -801,6 +833,31 @@ class PokerWebSocketClient {
     return true;
   }
 
+  sendChatMessage(message) {
+    console.log("WebSocket: sendChatMessage called with:", message);
+    console.log("WebSocket: Connected status:", this.isConnected);
+    console.log("WebSocket: Room ID:", this.roomId);
+    console.log("WebSocket: Player ID:", this.playerId);
+
+    if (!this.isConnected) {
+      console.error("WebSocket: Not connected to server");
+      return false;
+    }
+
+    if (!message || !message.trim()) {
+      console.error("WebSocket: Cannot send empty chat message");
+      return false;
+    }
+
+    console.log("WebSocket: Sending chat message to server");
+    this.send({
+      type: "chat_message",
+      message: message.trim(),
+    });
+
+    return true;
+  }
+
   send(message) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
@@ -815,12 +872,23 @@ class PokerWebSocketClient {
       this.ws = null;
     }
     this.isConnected = false;
+
+    // Hide chat when disconnecting
+    if (window.chatManager) {
+      window.chatManager.setEnabled(false);
+    }
   }
 
   // Method to enable single player mode and prevent reconnection
   enableSinglePlayerMode() {
     console.log("Enabling single player mode - disabling auto-reconnect");
     this.singlePlayerMode = true;
+
+    // Hide chat when switching to single player
+    if (window.chatManager) {
+      window.chatManager.setEnabled(false);
+    }
+
     this.disconnect();
   }
 
@@ -864,6 +932,18 @@ function initializeMultiplayer() {
     // Only override functions if we're still in multiplayer mode
     if (currentGameMode === "multiplayer") {
       setupMultiplayerFunctions();
+    }
+
+    // Initialize chat if available
+    if (window.chatManager) {
+      window.chatManager.setWebSocketClient(wsClient);
+    } else {
+      // Chat manager might not be initialized yet, try again after a short delay
+      setTimeout(() => {
+        if (window.chatManager) {
+          window.chatManager.setWebSocketClient(wsClient);
+        }
+      }, 100);
     }
   };
 
@@ -923,6 +1003,11 @@ function restoreSinglePlayerFunctions() {
   console.log("Restoring single player function overrides");
   currentGameMode = "singleplayer";
   window.currentGameMode = "singleplayer";
+
+  // Hide chat when switching to single player mode
+  if (window.chatManager) {
+    window.chatManager.setEnabled(false);
+  }
 
   if (window.originalHumanFold) {
     window.human_fold = window.originalHumanFold;

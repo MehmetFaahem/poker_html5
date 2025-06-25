@@ -102,6 +102,11 @@ function init() {
   // Initialize toast notifications
   initToastManager();
 
+  // Initialize chat system
+  if (typeof initializeChat === "function") {
+    initializeChat();
+  }
+
   // Initialize bet visibility state (hidden by default until game starts)
   const pokerTable = document.getElementById("poker_table");
   if (pokerTable) {

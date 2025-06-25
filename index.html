@@ -13,6 +13,9 @@
    <!-- Font Awesome for icons -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
    
+   <!-- Phosphor Icons for user icons -->
+   <script src="https://unpkg.com/@phosphor-icons/web"></script>
+   
    <link rel="stylesheet" href="static/css/text.css" type="text/css">
    <link rel="stylesheet" href="static/css/poker.css" type="text/css">
 
@@ -26,6 +29,7 @@
    <script charset="UTF-8" src=static/js/toast-notifications.js></script>
    <script charset="UTF-8" src=static/js/websocket-client.js></script>
    <script charset="UTF-8" src=static/js/ui-enhancements.js></script>
+   <script charset="UTF-8" src=static/js/chat.js></script>
 </head>
 <body onload="parent.init()">
     <div id="poker_table" class="poker-table" data-uid="">
@@ -198,6 +202,30 @@
     <div id="toast-container"></div>
    
     <div id="modal-box"></div>
+
+    <!-- Chat Feature -->
+    <div id="chat-icon" class="chat-icon" title="Open Chat">
+        <i class="ph-fill ph-chat-circle-text"></i>
+        <span id="chat-notification" class="chat-notification hidden">0</span>
+    </div>
+
+    <div id="chat-container" class="chat-container hidden">
+        <div class="chat-header">
+            <h3>Room Chat</h3>
+            <button id="chat-close" class="chat-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <!-- Chat messages will be added here dynamically -->
+        </div>
+        <div class="chat-input-container">
+            <input type="text" id="chat-input" class="chat-input" placeholder="Type your message..." maxlength="200">
+            <button id="chat-send" class="chat-send">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
 
     <!-- Room Creation Modal -->
     <div id="create-room-modal" class="modal" style="display: none;">

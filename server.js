@@ -1000,6 +1000,27 @@ wss.on("connection", (ws) => {
             );
           }
           break;
+
+        case "chat_message":
+          if (roomId && playerId && gameRooms.has(roomId)) {
+            const room = gameRooms.get(roomId);
+            const player = room.players.get(playerId);
+
+            if (player && message.message && message.message.trim()) {
+              // Sanitize the message
+              const sanitizedMessage = message.message.trim().substring(0, 200);
+
+              // Broadcast chat message to all players in the room
+              broadcastToRoom(roomId, {
+                type: "chat_message",
+                playerId: playerId,
+                playerName: player.name,
+                message: sanitizedMessage,
+                timestamp: Date.now(),
+              });
+            }
+          }
+          break;
       }
     } catch (error) {
       console.error("Error processing message:", error);
